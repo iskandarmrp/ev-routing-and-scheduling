@@ -1,0 +1,50 @@
+from .utils import calculate_energy_model
+
+def evaluate(graph, ev, route, charge_times):
+    """
+    fungsi untuk evaluasi waktu (Jika gagal mengeluarkan inf)
+    """
+    soc = ev.battery_now
+    t_total = 0.0
+
+    # Melakukan iterasi rute dari setiap node i menuju node j yang ada di dalam daftar rute yang sudah didapatkan
+    for idx in range(len(route)-1):
+        # Inisialisasi node [i] dan [j]
+        i, j = route[idx], route[idx+1]
+
+        # Durasi, jarak, kecepatan rata-rata setiap edges
+        distance_km = graph.edges[i, j].get("distance")
+        duration = graph.edges[i, j].get('weight')
+        speed = distance_km / (duration / 60)
+
+        # Menghitung energi
+        energy_consumed = calculate_energy_model(distance_km, speed, ev.type)
+
+        # Pengecekan charging time
+        if i in charge_times and charge_times[i]["charging_time"] > 0:
+            max_valid_rate = charge_times[i]["charging_rate"]
+            
+            t_charge = charge_times[i]["charging_time"] # menit
+            t_wait = charge_times[i]["waiting_time"] # menit
+            soc += max_valid_rate * (t_charge / 60) # kWh terisi
+            soc = min(ev.capacity, soc) # jangan melebihi kapasitas
+
+            t_total += t_charge
+            t_total += t_wait
+
+        # Menghitung SOC
+        soc -= energy_consumed
+
+        # Jika SOC kurang dari nol maka gagal dan mengeluarkan inf
+        if soc < 0:
+            print("SOC < 0")
+
+            # Penalti kalau soc kurang dari 0
+            t_total += abs(soc) * 1000
+            # print("SOC < 0")
+        
+        t_total += duration
+
+        # Coming soon: Pengecekan queue time
+
+    return t_total
