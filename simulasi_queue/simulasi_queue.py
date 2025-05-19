@@ -124,7 +124,7 @@ df = pd.read_csv("unique_charging_rate_parameters_cleaned.csv")
 
 counter = 1
 
-for i in range(5):
+for i in range(4):
     counter += 1
     all_records = []
     for idx, row in df.iterrows():
