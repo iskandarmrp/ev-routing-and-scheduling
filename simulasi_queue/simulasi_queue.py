@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import heapq
+import subprocess
 
 # Fungsi modifikasi untuk simulasi seperti di atas, tapi dengan initial_q yang bisa dipilih (0 atau 1)
 def simulate_queue_event_based_with_q(
@@ -121,7 +122,10 @@ df = pd.read_csv("unique_charging_rate_parameters_cleaned.csv")
 
 # Simulasi seluruh parameter untuk q = 0 dan q = 1
 
+counter = 1
+
 for i in range(5):
+    counter += 1
     all_records = []
     for idx, row in df.iterrows():
         indicators = [round(i, 2) for i in np.linspace(0, 1, int(row["s"]) + 1)]
@@ -137,7 +141,7 @@ for i in range(5):
                 initial_q=q_init
             )
             result["param_id"] = idx
-            result["count"] = i + 1
+            result["count"] = counter
             all_records.append(result)
     # Gabungkan dan simpan ke CSV
     prev_df = pd.read_csv("all_event_based_with_initial_q.csv")
@@ -147,3 +151,13 @@ for i in range(5):
         last_df.at[idx, 'waiting_time'] = prev_df.at[idx, 'waiting_time'] + last_df.at[idx, 'waiting_time']
 
     last_df.to_csv("all_event_based_with_initial_q.csv", index=False)
+
+    if counter % 5 == 0:
+        # Simpan CSV sementara
+        temp_df = pd.concat(all_records, ignore_index=True)
+        temp_df.to_csv("all_event_based_with_initial_q.csv", index=False)
+
+        # ✅ Git commit dan push
+        subprocess.run(["git", "add", "all_event_based_with_initial_q.csv"])
+        subprocess.run(["git", "commit", "-m", f"Auto commit after {i + 1} iterations"])
+        subprocess.run(["git", "push"])
