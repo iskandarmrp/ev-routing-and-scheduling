@@ -124,7 +124,7 @@ df = pd.read_csv("unique_charging_rate_parameters_cleaned.csv")
 
 counter = 1
 
-for i in range(4):
+for i in range(49999):
     counter += 1
     all_records = []
     for idx, row in df.iterrows():
@@ -153,7 +153,7 @@ for i in range(4):
     last_df.to_csv("all_event_based_with_initial_q.csv", index=False)
     print("Counter", counter)
 
-    if counter % 5 == 0:
+    if counter % 10000 == 0:
         print("Masuk")
         # Simpan CSV sementara
         temp_df = pd.concat(all_records, ignore_index=True)
