@@ -122,9 +122,9 @@ df = pd.read_csv("unique_charging_rate_parameters_cleaned.csv")
 
 # Simulasi seluruh parameter untuk q = 0 dan q = 1
 
-counter = 1
+counter = 1367
 
-for i in range(49999):
+for i in range(4999):
     counter += 1
     all_records = []
     for idx, row in df.iterrows():
@@ -146,6 +146,7 @@ for i in range(49999):
     # Gabungkan dan simpan ke CSV
     prev_df = pd.read_csv("all_event_based_with_initial_q.csv")
     last_df = pd.concat(all_records, ignore_index=True)
+    print("Counter", counter)
 
     for idx, row in last_df.iterrows():
         last_df.at[idx, 'waiting_time'] = prev_df.at[idx, 'waiting_time'] + last_df.at[idx, 'waiting_time']
@@ -156,10 +157,8 @@ for i in range(49999):
     if counter % 10000 == 0:
         print("Masuk")
         # Simpan CSV sementara
-        temp_df = pd.concat(all_records, ignore_index=True)
-        temp_df.to_csv("all_event_based_with_initial_q.csv", index=False)
 
         # ✅ Git commit dan push
-        subprocess.run(["git", "add", "all_event_based_with_initial_q.csv"])
-        subprocess.run(["git", "commit", "-m", f"Auto commit after {i + 1} iterations"])
-        subprocess.run(["git", "push"])
+        # subprocess.run(["git", "add", "all_event_based_with_initial_q.csv"])
+        # subprocess.run(["git", "commit", "-m", f"Auto commit after {i + 1} iterations"])
+        # subprocess.run(["git", "push"])
