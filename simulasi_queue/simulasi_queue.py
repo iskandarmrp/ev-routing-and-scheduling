@@ -151,8 +151,10 @@ for i in range(5):
         last_df.at[idx, 'waiting_time'] = prev_df.at[idx, 'waiting_time'] + last_df.at[idx, 'waiting_time']
 
     last_df.to_csv("all_event_based_with_initial_q.csv", index=False)
+    print("Counter", counter)
 
     if counter % 5 == 0:
+        print("Masuk")
         # Simpan CSV sementara
         temp_df = pd.concat(all_records, ignore_index=True)
         temp_df.to_csv("all_event_based_with_initial_q.csv", index=False)
