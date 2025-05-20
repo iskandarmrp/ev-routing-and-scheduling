@@ -122,7 +122,7 @@ df = pd.read_csv("unique_charging_rate_parameters_cleaned.csv")
 
 # Simulasi seluruh parameter untuk q = 0 dan q = 1
 
-counter = 1367
+counter = 1928
 
 for i in range(4999):
     counter += 1
