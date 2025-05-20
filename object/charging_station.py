@@ -22,39 +22,23 @@ class ChargingStation:
     
     # Melakukan pengecasan
     def charge(self, ev, charging_time, charging_rate):
-        # # Melakukan random slots availability
-        # self.random_availability()
-
-        # # Mencari slot yang tersedia
-        # slot = self.find_available_slot(ev.charging_rate)
-    
-        # Kalau tidak menemukan slot makan skip charging
-        # if slot is None:
-        #     print(f"[{ev.env.now:.2f}m] {ev.type} TIDAK menemukan slot yang kompatibel di {self.node_id}, lanjut tanpa charging.")
-        #     return  # langsung skip charging
-
-        # slot.available = False
-
-        # Hitung maksimum waktu yang dibutuhkan untuk full charge
-        # energy_needed = ev.capacity - ev.battery_now
-        # max_charging_duration = (energy_needed / slot.charging_rate) * 60  # menit
-
-        # Ambil waktu charging yang lebih kecil: antara waktu yang diberikan atau sampai baterai penuh
-        # actual_charging_time = min(charging_time, max_charging_duration)
-        if charging_rate == 999:
-            charging_rate = max(self.slots_charging_rate)
-
         print(f"[{self.env.now:.2f}m] {ev.type} ngecas di {self.node_id} "
               f"dengan slot {charging_rate:.2f} kWh/h selama {charging_time:.2f} menit")
-        
-        # yield self.env.timeout(actual_charging_time)
 
         # Tambahkan energi ke baterai
-        # energy_added = (actual_charging_time / 60) * slot.charging_rate # dalam menit
-        # ev.battery_now = min(ev.battery_now + energy_added, ev.capacity)
-        energy_added = (charging_time / 60) * charging_rate # dalam menit
-        ev.battery_now = min(ev.battery_now + energy_added, ev.capacity)
+        charging_time_now = 0
 
-        yield self.env.timeout(charging_time)
+        while charging_time_now < charging_time:
+            charging_time_now += 1
+
+            if charging_time_now >= charging_time:
+                last_time = charging_time_now - charging_time
+                energy_added = ((1 - last_time) / 60) * charging_rate # dalam menit
+                ev.battery_now = min(ev.battery_now + energy_added, ev.capacity)
+                yield self.env.timeout(1 - last_time)
+            else:
+                energy_added = (1 / 60) * charging_rate # dalam menit
+                ev.battery_now = min(ev.battery_now + energy_added, ev.capacity)
+                yield self.env.timeout(1)
 
         print(f"[{self.env.now:.2f}m] {ev.type} selesai ngecas, baterai: {ev.battery_now:.2f} kWh")

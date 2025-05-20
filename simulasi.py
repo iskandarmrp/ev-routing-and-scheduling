@@ -328,14 +328,6 @@ if __name__ == '__main__':
         5: {'soc_start': 14.86, 'soc_target': 82.67, 'charging_rate': 50, 'charging_time': 81.37, 'waiting_time': 0.38},
     }
     
-    # Inisialiasi simulasi dan menjalankan simulasi
-    # sim = Simulation(
-    #     graph_file="charging_station_graph.pkl",
-    #     ev_input = ev_input,
-    #     charging_stations_csv="charging_station.csv",
-    #     route=route_nodes,
-    #     charging_at = charging_at
-    # )
     sim = Simulation(
         graph_file="preprocessing_graph/spklu_sumatera_graph_with_parameters_231.pkl",
         ev_input = ev_input,

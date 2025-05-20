@@ -20,8 +20,6 @@ class ElectricVehicle:
         # SOKIN
         # Melakukan cas jika terdapat di schedule
         if (G.nodes[from_node].get("is_charging_station") and ((from_node in charging_at) or (self.battery_now < 0.2 * self.capacity))):
-            self.status = "charging"
-
             # Cari rute sambil ngecas
             # SOKIN
             # 1. EV meninggalkan titik asal (origin)
@@ -31,13 +29,138 @@ class ElectricVehicle:
             # 5. EV selesai charging (mencapai target battery level)
 
             # Cek dulu full atau ngga (Kalau charging rate full, ambil yang paling tinggi)
+            # charging_rate = max(self.slots_charging_rate)
             if (from_node in charging_at):
                 charging_duration = charging_at[from_node]['charging_time']
                 charging_rate = charging_at[from_node]['charging_rate']
+                rate_str = str(charging_rate) + " kW"
+                
+                # Cek apakah full atau tidak
+                time = 0
+                while True:
+                    indicator_val = charging_stations[from_node].slots_indicators.get(rate_str, 1.0)
+                    if indicator_val < 1.0:
+                        # Rate awal tersedia
+                        print(f"Slot {rate_str} tersedia. Melanjutkan charging.")
+                        break
+
+                    # Coba cari rate alternatif dari yang tertinggi ke terendah
+                    available_rates = sorted(
+                        [
+                            float(rate_key.replace(" kW", ""))
+                            for rate_key in charging_stations[from_node].slots_indicators.keys()
+                            if float(rate_key.replace(" kW", "")) <= self.charging_rate
+                        ],
+                        reverse=True
+                    )
+
+                    found = False
+                    for rate in available_rates:
+                        rate_str = str(rate) + " kW"
+                        if charging_stations[from_node].slots_indicators[rate_str] < 1.0:
+                            charging_rate = rate
+                            charging_duration = 60 * (charging_at[from_node]['soc_target'] - charging_at[from_node]['soc_start']) / charging_rate
+                            print(f"Mengganti ke slot rate {charging_rate} kW karena rate awal penuh.")
+                            found = True
+                            break
+
+                    if found:
+                        break  # Charging slot ditemukan
+
+                    # Kalau tetap tidak ada, maka tunggu dan randomize ulang slot
+                    print(f"Semua slot penuh di {from_node}, menunggu 10 detik simulasi...")
+
+                    yield env.timeout(1)  # tunggu 1 detik simulasi
+
+                    self.status = "waiting_for_charge"
+
+                    if time % 10 == 0:
+                        # SOKIN
+                        # randomize_slots_indicator_for_all(G, charging_stations)
+                        pass
+
+                    time += 1
             else:
-                charging_duration = 20
-                charging_rate = 999
-            yield from charging_stations[from_node].charge(self, charging_duration, charging_rate)
+                charging_duration = 40
+
+                # Ambil rate maksimal yang <= self.charging_rate
+                eligible_rates = [r for r in self.slots_charging_rate if r <= self.charging_rate]
+
+                if eligible_rates:
+                    charging_rate = max(eligible_rates)
+                else:
+                    charging_rate = None  # atau fallback seperti min(self.slots_charging_rate)
+
+                rate_str = str(charging_rate) + " kW"
+
+                # Cek apakah full atau tidak
+                time = 0
+                while True:
+                    indicator_val = charging_stations[from_node].slots_indicators.get(rate_str, 1.0)
+                    if indicator_val < 1.0:
+                        # Rate awal tersedia
+                        print(f"Slot {rate_str} tersedia. Melanjutkan charging.")
+                        break
+
+                    # Coba cari rate alternatif dari yang tertinggi ke terendah
+                    available_rates = sorted(
+                        [
+                            float(rate_key.replace(" kW", ""))
+                            for rate_key in charging_stations[from_node].slots_indicators.keys()
+                            if float(rate_key.replace(" kW", "")) <= self.charging_rate
+                        ],
+                        reverse=True
+                    )
+
+                    found = False
+                    for rate in available_rates:
+                        rate_str = str(rate) + " kW"
+                        if charging_stations[from_node].slots_indicators[rate_str] < 1.0:
+                            charging_rate = rate
+                            print(f"Mengganti ke slot rate {charging_rate} kW karena rate awal penuh.")
+                            found = True
+                            break
+
+                    if found:
+                        break  # Charging slot ditemukan
+
+                    # Kalau tetap tidak ada, maka tunggu dan randomize ulang slot
+                    print(f"Semua slot penuh di {from_node}, menunggu 10 detik simulasi...")
+
+                    yield env.timeout(1)  # tunggu 1 detik simulasi
+
+                    self.status = "waiting_for_charge"
+
+                    if time % 10 == 0:
+                        # SOKIN
+                        # randomize_slots_indicator_for_all(G, charging_stations)
+                        pass
+
+                    time += 1
+
+            if charging_duration and charging_rate:
+                self.status = "charging"
+
+                # Mengubah indicator (karena masuk ngecas)
+                rate_str = str(charging_rate) + " kW"
+                station = charging_stations[from_node]
+
+                s = station.slots_parameter[rate_str]["s"]
+                indicator = station.slots_indicators.get(rate_str, 0.0)
+
+                occupied = round(indicator * s)
+                occupied += 1
+
+                station.slots_indicators[rate_str] = round(occupied / s, 2)
+
+                print("Indikator slot sekarang", station.slots_indicators[rate_str])
+
+                # Masuk ke charging
+                yield from charging_stations[from_node].charge(self, charging_duration, charging_rate)
+
+                # Setelah mengecas cek rute lagi (Apakah ada node yang dirute yang indikatornya jadi 1)
+                # Cek, kalau ada panggil algoritma lagi
+                # SOKIN
 
         print(f"[{env.now:.2f}m] {self.type} mulai dari {from_node} ke {to_node} (jarak: {distance_km} km)")
 
