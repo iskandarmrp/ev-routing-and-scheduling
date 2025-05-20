@@ -19,33 +19,6 @@ class ChargingStation:
         self.slots_charging_rate = slots_charging_rate # Array dengan isi charging rate setiap slot
         self.slots_indicators = slots_indicators
         self.slots_parameter = slots_parameter
-
-    # Menemukan slot yang tersedia (is_available == True dan Charging Rate <= EV Charging Rate), serta mengambil yang nilainya paling max
-    # def find_available_slot(self, ev_charging_rate):
-    #     available_slots = [slot for slot in self.slots if slot.available and slot.charging_rate <= ev_charging_rate]
-    #     return max(available_slots, key=lambda slot: slot.charging_rate) if available_slots else None
-    
-    # Melakukan random charging station availability untuk Charging Station ini
-    # def random_availability(self):
-    #     # Ambil sample jumlah slot yang available berdasarkan distribusi normal
-    #     available_count = int(round(np.random.normal(
-    #         loc=self.slots_availability_mean,
-    #         scale=self.slots_availability_std
-    #     )))
-
-    #     # Clamp nilai available_count supaya tetap dalam batas 0 - total_slots
-    #     available_count = max(0, min(available_count, self.total_slots))
-
-    #     # todo: Melakukan random tetapi dengan data distribusi slot yang sudah ada
-    #     # Randomize indeks slot yang akan available
-    #     available_indices = np.random.choice(range(self.total_slots), available_count, replace=False)
-
-    #     # Memasukkan availability
-    #     for idx, slot in enumerate(self.slots):
-    #         slot.available = (idx in available_indices)
-
-    #     print(f"[Random Availability] Station {self.node_id}: "
-    #           f"{available_count}/{self.total_slots} slot available")
     
     # Melakukan pengecasan
     def charge(self, ev, charging_time, charging_rate):

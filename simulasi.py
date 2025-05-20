@@ -234,7 +234,7 @@ def simulate_route(env, G, charging_at, charging_stations, ev, route):
         speed = distance_km / duration_in_hour
 
         # Simulasi drive dan charging
-        yield from ev.drive(env, G, charging_at, charging_stations, from_node, to_node, distance_km, duration, duration_in_hour, speed)
+        yield from ev.drive(env, G, charging_at, charging_stations, from_node, to_node)
 
 # Object
 
