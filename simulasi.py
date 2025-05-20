@@ -3,6 +3,7 @@ import simpy
 import osmnx as ox
 import numpy as np
 import pickle
+import random
 
 from object.charging_station import (
     ChargingSlot,
@@ -144,7 +145,9 @@ def find_edges(u, v, G):
     return filtered[0]
 
 # procedure edges management (Weight: Duration) (Untuk graph awal)
-def manage_all_edges(G):
+# Ini masih asal ngerandomnya
+# SOKIN
+def manage_all_edges(graph):
     """
     Melakukan sampling weight (Durasi) untuk Graph awal sebelum menentukan rute
     param:
@@ -152,21 +155,13 @@ def manage_all_edges(G):
 
     Contoh isi edge pada Graph: (0, 1, {'weight': 10.716666666666667, 'distance': 5.404, 'weight_mean': 716666666666667, 'weight_std': 1.0716666666666668})
     """
-    for u, v, data in G.edges(data=True):
-        mean = data.get('weight_mean')
-        std = data.get('weight_std')
-
-        # Melakukan sampling weight berdasarkan 'weight_mean' dan 'weight_std'
-        sampled_weight = np.random.normal(loc=mean, scale=std)
-        sampled_weight = max(0, sampled_weight)
-
-        # Update weight (Duration)
-        data['weight'] = sampled_weight
-
-        print(f"[Manage Edges] Edge ({u} → {v}): {sampled_weight:.2f}")
+    for u, v, data in graph.edges(data=True):
+        original_weight = data.get("weight", 1.0)
+        perturbation = random.uniform(-0.1, 0.1) * original_weight
+        data["weight"] = max(0.1, original_weight + perturbation)
 
 # procedure nodes management (Charging Station Availability) (Untuk graph awal)
-def manage_all_nodes(G):
+def manage_all_nodes(graph, charging_stations):
     """
     Melakukan sampling availability untuk Graph awal sebelum menentukan rute
     param:
@@ -174,51 +169,23 @@ def manage_all_nodes(G):
 
     Contoh isi Graph: (0, {'name': 'SPLU', 'lat': -6.920398, 'lon': 107.6088493, 'is_charging_station': True, 'total_slots': 2, 'slots_charging_rate': [1.0, 2.0], 'slots_availability_std': 0.5, 'slots_availability_mean': 1.55, 'slots_availability': [True, True]})
     """
-    for station_id, data in G.nodes(data=True):
-        if data.get("is_charging_station", False):
-            total_slots = data.get("total_slots")
-            mean = data.get("slots_availability_mean")
-            std = data.get("slots_availability_std")
+    for node_id, station in charging_stations.items():
+        # Ambil parameter dari ChargingStation
+        slots_param = station.slots_parameter
+        indicator = {}
 
-            # Menghitung jumlah slot yang tersedia berdasarkan distribusi normal
-            available_count = int(np.random.normal(loc=mean, scale=std))
-            available_count = max(0, min(available_count, total_slots))  # clamp
+        for rate, params in slots_param.items():
+            p = params.get("p", 0.025)
+            s = params.get("s", 1)
+            occupied = sum(1 if random.random() < p else 0 for _ in range(s))
+            indicator[rate] = round(occupied / s, 2)
 
-            # todo: Melakukan random tetapi dengan data distribusi slot yang sudah ada
-            # Randomize indeks slot yang akan available
-            available_indices = np.random.choice(range(total_slots), available_count, replace=False)
+        # Simpan hasil ke ChargingStation
+        station.slots_indicators = indicator
 
-            # Update slot availability: list boolean berdasarkan hasil random
-            slots_availability = [(i in available_indices) for i in range(total_slots)]
-            G.nodes[station_id]["slots_availability"] = slots_availability
-
-            print(f"[Manage Nodes] Station {station_id} → {available_count}/{total_slots} slot tersedia: {slots_availability}")
-
-# procedure edge management (Randomize Weight (Duration) untuk satu edge)
-def manage_edge(G, from_node, to_node):
-    """
-    Melakukan sampling weight (Durasi) untuk Graph awal sebelum menentukan rute
-    param:
-    G -> graph
-    from_node -> node awal
-    to_node -> node tujuan
-    """
-    if G.has_edge(from_node, to_node):
-        data = G.edges[from_node, to_node]
-
-        mean = data.get('weight_mean')
-        std = data.get('weight_std')
-
-        # Melakukan sampling weight berdasarkan 'weight_mean' dan 'weight_std'
-        sampled_weight = np.random.normal(loc=mean, scale=std)
-        sampled_weight = max(0, sampled_weight)
-
-        # Update weight (Duration)
-        data['weight'] = sampled_weight
-
-        print(f"[Manage Edge] Edge ({from_node} → {to_node}): {sampled_weight:.2f}")
-    else:
-        print(f"[Manage Edge] Edge ({from_node} → {to_node}) tidak ditemukan di graph.")
+        # Jika node_id juga ada di graph, update graph-nya juga
+        if node_id in graph.nodes:
+            graph.nodes[node_id]["slots_indicator"] = indicator
 
 # todo: buat simulasi rute (simulasiin rute yang didapat dari function get route)
 # procedure simulate route
