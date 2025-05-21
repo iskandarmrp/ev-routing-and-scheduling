@@ -13,7 +13,7 @@ class ElectricVehicle:
         self.current_lon = current_lon # Longitude Sekarang
         self.status = "idle"  # idle, traveling, charging, waiting_for_charge
 
-    def drive(self, env, G, charging_at, charging_stations, from_node, to_node):
+    def drive(self, env, G, charging_at, charging_stations, from_node, to_node, status_data):
         distance_km = G.edges[from_node, to_node].get("distance", 1)  # Sudah dalam bentuk km
 
         # Harusnya ngecas abis travel
@@ -155,6 +155,8 @@ class ElectricVehicle:
 
                 print("Indikator slot sekarang", station.slots_indicators[rate_str])
 
+                status_data["charging_at_node"] = G.nodes[from_node]['name']
+
                 # Masuk ke charging
                 yield from charging_stations[from_node].charge(self, charging_duration, charging_rate)
 
@@ -204,6 +206,10 @@ class ElectricVehicle:
 
         # Menghitung waktu
         travel_time = (distance_km / speed) * 60  # Waktu Travel (Ubah ke dalam menit)
+
+        status_data["current_from_node"] = G.nodes[from_node]['name']
+        status_data["current_to_node"] = G.nodes[to_node]['name']
+        status_data["charging_at_node"] = None
 
         # Lihat jalur
         path_length = len(decoded_polyline)

@@ -57,6 +57,9 @@ def get_status():
         "ev_status": status_data.get('ev_status'),
         "current_position": status_data.get("current_position"),
         "polyline": status_data.get("polyline"),
+        "current_from_node": status_data.get("current_from_node"),
+        "current_to_node": status_data.get("current_to_node"),
+        "charging_at_node": status_data.get("charging_at_node"),
     }
 
 # Endpoint default root (opsional)

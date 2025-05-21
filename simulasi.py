@@ -26,6 +26,9 @@ status_data = {
     "charging_stations": [],
     "charging_plan": [],
     "polyline": [],
+    "current_from_node": None,
+    "current_to_node": None,
+    "charging_at_node": None,
 }
 
 # function user_input
@@ -201,7 +204,7 @@ def manage_all_nodes(graph, charging_stations):
 # todo: buat simulasi rute (simulasiin rute yang didapat dari function get route)
 # procedure simulate route
 def simulate_route(env, G, charging_at, charging_stations, ev, route):
-    for i in range(len(route) - 2):
+    for i in range(len(route) - 1):
         OSRM_URL = "http://localhost:5000"
         lon1 = G.nodes[route[i]]['longitude']
         lat1 = G.nodes[route[i]]['latitude']
@@ -229,8 +232,12 @@ def simulate_route(env, G, charging_at, charging_stations, ev, route):
         from_node = route[i]
         to_node = route[i + 1]
 
+        status_data["current_from_node"] = None
+        status_data["current_to_node"] = None
+        status_data["charging_at_node"] = None  # reset charging status
+
         # Simulasi drive dan charging
-        yield from ev.drive(env, G, charging_at, charging_stations, from_node, to_node)
+        yield from ev.drive(env, G, charging_at, charging_stations, from_node, to_node, status_data)
 
 # Object
 
