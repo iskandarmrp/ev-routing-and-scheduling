@@ -179,10 +179,10 @@ class ElectricVehicle:
             data = response.json()
 
             if data["code"] == "Ok":
-                route = data["routes"][0]
-                distance_km = round(route["distance"] / 1000, 2)
-                duration_min = round(route["duration"] / 60, 2)
-                polyline_str = route["geometry"]
+                route_data = data["routes"][0]
+                distance_km = round(route_data["distance"] / 1000, 2)
+                duration_min = round(route_data["duration"] / 60, 2)
+                polyline_str = route_data["geometry"]
                 decoded_polyline = polyline.decode(polyline_str)  # list of (lat, lon)
 
                 print(f"✅ {from_node} → {to_node}: {distance_km} km, {duration_min} min")

@@ -4,6 +4,9 @@ import osmnx as ox
 import numpy as np
 import pickle
 import random
+import time
+import requests
+import polyline
 
 from object.charging_station import (
     ChargingSlot,
@@ -15,7 +18,15 @@ from object.electric_vehicle import (
 from algorithm.algorithm import (hybrid_pso_alns_evrp)
 
 
-# Function dan Procedure
+# Status
+status_data = {
+    "battery": None,
+    "ev_status": None,
+    "current_position": None,
+    "charging_stations": [],
+    "charging_plan": [],
+    "polyline": [],
+}
 
 # function user_input
 def user_input(vehicle_type):
@@ -190,15 +201,33 @@ def manage_all_nodes(graph, charging_stations):
 # todo: buat simulasi rute (simulasiin rute yang didapat dari function get route)
 # procedure simulate route
 def simulate_route(env, G, charging_at, charging_stations, ev, route):
+    for i in range(len(route) - 2):
+        OSRM_URL = "http://localhost:5000"
+        lon1 = G.nodes[route[i]]['longitude']
+        lat1 = G.nodes[route[i]]['latitude']
+        lon2 = G.nodes[route[i + 1]]['longitude']
+        lat2 = G.nodes[route[i + 1]]['latitude']
+
+        try:
+            url = f"{OSRM_URL}/route/v1/driving/{lon1},{lat1};{lon2},{lat2}?overview=full&geometries=polyline"
+            response = requests.get(url)
+            data = response.json()
+
+            if data["code"] == "Ok":
+                route_data = data["routes"][0]
+                polyline_str = route_data["geometry"]
+                decoded_polyline = polyline.decode(polyline_str)  # list of (lat, lon)
+
+                status_data["polyline"].append(decoded_polyline)
+
+            else:
+                print(f"❌ gagal ambil polyline")
+        except Exception as e:
+            print(f"⚠️ Error saat memproses polyline: {e}")
+
     for i in range(len(route) - 1):
         from_node = route[i]
         to_node = route[i + 1]
-
-        # Ambil jarak antar node dari graph
-        distance_km = G.edges[from_node, to_node].get("distance", 1)  # Sudah dalam bentuk km
-        duration = G.edges[from_node, to_node].get("weight", 1)  # Durasi jalan dalam menit
-        duration_in_hour = duration / 60 # Ubah durasi ke dalam jam untuk menghitung kecepatan
-        speed = distance_km / duration_in_hour
 
         # Simulasi drive dan charging
         yield from ev.drive(env, G, charging_at, charging_stations, from_node, to_node)
@@ -261,7 +290,7 @@ class Simulation:
     # Membuat EV menggunakan class EV dengan input ev
     def setup_electric_vehicle(self):
         self.ev = ElectricVehicle(
-            **ev_input
+            **self.ev_input
         )
         print("EV berhasil dibuat")
 
@@ -281,7 +310,26 @@ class Simulation:
 
         self.env.process(simulate_route(self.env, self.G, self.charging_at, self.charging_stations, self.ev, self.route))
         print('Simulasi sedang berjalan')
-        self.env.run()
+        # self.env.run()
+
+        while True:
+            if not self.env._queue:
+                break
+
+            now = self.env.now
+            next_time = self.env.peek()  # waktu event berikutnya
+
+            delta = next_time - now
+
+            self.env.step()
+            # Perbarui status setiap step
+            status_data["battery"] = self.ev.battery_now
+            status_data["ev_status"] = self.ev.status
+            status_data["current_position"] = [self.ev.current_lat, self.ev.current_lon]
+            # if not status_data["polyline"] or status_data["polyline"][-1] != [self.ev.current_lat, self.ev.current_lon]:
+            #     status_data["polyline"].append([self.ev.current_lat, self.ev.current_lon])
+
+            time.sleep(delta)  # real-time delay sesuai timeout simulasi
 
 if __name__ == '__main__':
     # ev_input = {

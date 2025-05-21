@@ -35,10 +35,12 @@ class ChargingStation:
                 last_time = charging_time_now - charging_time
                 energy_added = ((1 - last_time) / 60) * charging_rate # dalam menit
                 ev.battery_now = min(ev.battery_now + energy_added, ev.capacity)
+                print(f"[{self.env.now:.2f}m] {ev.type} sedang ngecas, baterai: {ev.battery_now:.2f} kWh")
                 yield self.env.timeout(1 - last_time)
             else:
                 energy_added = (1 / 60) * charging_rate # dalam menit
                 ev.battery_now = min(ev.battery_now + energy_added, ev.capacity)
+                print(f"[{self.env.now:.2f}m] {ev.type} sedang ngecas, baterai: {ev.battery_now:.2f} kWh")
                 yield self.env.timeout(1)
 
         print(f"[{self.env.now:.2f}m] {ev.type} selesai ngecas, baterai: {ev.battery_now:.2f} kWh")
