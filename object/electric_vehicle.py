@@ -156,6 +156,7 @@ class ElectricVehicle:
                 print("Indikator slot sekarang", station.slots_indicators[rate_str])
 
                 status_data["charging_at_node"] = G.nodes[from_node]['name']
+                status_data["current_position"] = [G.nodes[from_node]['latitude'], G.nodes[from_node]['longitude']]
 
                 # Masuk ke charging
                 yield from charging_stations[from_node].charge(self, charging_duration, charging_rate)

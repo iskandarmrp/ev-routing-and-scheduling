@@ -21,6 +21,7 @@ from algorithm.algorithm import (hybrid_pso_alns_evrp)
 # Status
 status_data = {
     "battery": None,
+    "capacity": None,
     "ev_status": None,
     "current_position": None,
     "charging_stations": [],
@@ -29,6 +30,8 @@ status_data = {
     "current_from_node": None,
     "current_to_node": None,
     "charging_at_node": None,
+    "charging_stations": [],
+    "time_now": None,
 }
 
 # function user_input
@@ -315,6 +318,29 @@ class Simulation:
 
         charging_at = self.charging_at
 
+        status_data["capacity"] = self.ev.capacity
+        status_data["charging_plan"] = list(charging_at.items())
+
+        status_data["current_position"] = [self.ev.current_lat, self.ev.current_lon]
+        
+        status_data["charging_stations"] = [
+            {
+                "node_id": station.node_id,
+                "name": station.name,
+                "latitude": station.latitude,
+                "longitude": station.longitude,
+                "total_slots": station.total_slots,
+                "availability": {
+                    rate: {
+                        "available": round((1 - indicator) * station.slots_parameter[rate]["s"]),
+                        "total": station.slots_parameter[rate]["s"]
+                    }
+                    for rate, indicator in station.slots_indicators.items()
+                }
+            }
+            for station in self.charging_stations.values()
+        ]
+
         self.env.process(simulate_route(self.env, self.G, self.charging_at, self.charging_stations, self.ev, self.route))
         print('Simulasi sedang berjalan')
         # self.env.run()
@@ -333,6 +359,24 @@ class Simulation:
             status_data["battery"] = self.ev.battery_now
             status_data["ev_status"] = self.ev.status
             status_data["current_position"] = [self.ev.current_lat, self.ev.current_lon]
+            status_data["charging_stations"] = [
+                {
+                    "node_id": station.node_id,
+                    "name": station.name,
+                    "latitude": station.latitude,
+                    "longitude": station.longitude,
+                    "total_slots": station.total_slots,
+                    "availability": {
+                        rate: {
+                            "available": round((1 - indicator) * station.slots_parameter[rate]["s"]),
+                            "total": station.slots_parameter[rate]["s"]
+                        }
+                        for rate, indicator in station.slots_indicators.items()
+                    }
+                }
+                for station in self.charging_stations.values()
+            ]
+            status_data["time_now"] = self.env.now
             # if not status_data["polyline"] or status_data["polyline"][-1] != [self.ev.current_lat, self.ev.current_lon]:
             #     status_data["polyline"].append([self.ev.current_lat, self.ev.current_lon])
 

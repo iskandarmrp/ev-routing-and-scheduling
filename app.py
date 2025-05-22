@@ -21,7 +21,7 @@ def startup_event():
     ev_input = {
         'type': 'tesla',
         'max_speed_kmh': 100,
-        'battery_capacity': 130,
+        'battery_capacity': 118,
         'battery_now': 90,
         'charging_rate': 125,
         'current_lat': -1.5882215,
@@ -54,12 +54,16 @@ def startup_event():
 def get_status():
     return {
         "battery": status_data.get("battery"),
+        "capacity": status_data.get("capacity"),
         "ev_status": status_data.get('ev_status'),
         "current_position": status_data.get("current_position"),
         "polyline": status_data.get("polyline"),
         "current_from_node": status_data.get("current_from_node"),
         "current_to_node": status_data.get("current_to_node"),
         "charging_at_node": status_data.get("charging_at_node"),
+        "charging_stations": status_data.get("charging_stations"),
+        "charging_plan": status_data.get("charging_plan"),
+        "time_now": status_data.get("time_now"),
     }
 
 # Endpoint default root (opsional)
