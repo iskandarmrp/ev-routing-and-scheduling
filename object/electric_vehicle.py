@@ -38,7 +38,7 @@ class ElectricVehicle:
                 # Cek apakah full atau tidak
                 time = 0
                 while True:
-                    indicator_val = charging_stations[from_node].slots_indicators.get(rate_str, 1.0)
+                    indicator_val = charging_stations[from_node].slots_indicators.get(rate_str, {}).get("indicator", 1.0)
                     if indicator_val < 1.0:
                         # Rate awal tersedia
                         print(f"Slot {rate_str} tersedia. Melanjutkan charging.")
@@ -57,7 +57,7 @@ class ElectricVehicle:
                     found = False
                     for rate in available_rates:
                         rate_str = str(rate) + " kW"
-                        if charging_stations[from_node].slots_indicators[rate_str] < 1.0:
+                        if charging_stations[from_node].slots_indicators[rate_str].get("indicator", 1.0) < 1.0:
                             charging_rate = rate
                             charging_duration = 60 * (charging_at[from_node]['soc_target'] - charging_at[from_node]['soc_start']) / charging_rate
                             print(f"Mengganti ke slot rate {charging_rate} kW karena rate awal penuh.")
@@ -96,7 +96,7 @@ class ElectricVehicle:
                 # Cek apakah full atau tidak
                 time = 0
                 while True:
-                    indicator_val = charging_stations[from_node].slots_indicators.get(rate_str, 1.0)
+                    indicator_val = charging_stations[from_node].slots_indicators.get(rate_str, {}).get("indicator", 1.0)
                     if indicator_val < 1.0:
                         # Rate awal tersedia
                         print(f"Slot {rate_str} tersedia. Melanjutkan charging.")
@@ -115,7 +115,7 @@ class ElectricVehicle:
                     found = False
                     for rate in available_rates:
                         rate_str = str(rate) + " kW"
-                        if charging_stations[from_node].slots_indicators[rate_str] < 1.0:
+                        if charging_stations[from_node].slots_indicators[rate_str].get("indicator", 1.0) < 1.0:
                             charging_rate = rate
                             print(f"Mengganti ke slot rate {charging_rate} kW karena rate awal penuh.")
                             found = True
@@ -146,14 +146,15 @@ class ElectricVehicle:
                 station = charging_stations[from_node]
 
                 s = station.slots_parameter[rate_str]["s"]
-                indicator = station.slots_indicators.get(rate_str, 0.0)
+                indicator = station.slots_indicators.get(rate_str, {}).get("indicator", 1.0)
 
                 occupied = round(indicator * s)
                 occupied += 1
 
-                station.slots_indicators[rate_str] = round(occupied / s, 2)
+                station.slots_indicators[rate_str]["indicator"] = round(occupied / s, 2)
+                station.slots_indicators[rate_str]["time_after_indicator_change"] = 0
 
-                print("Indikator slot sekarang", station.slots_indicators[rate_str])
+                print("Indikator slot sekarang", station.slots_indicators[rate_str]["indicator"])
 
                 status_data["charging_at_node"] = G.nodes[from_node]['name']
                 status_data["current_position"] = [G.nodes[from_node]['latitude'], G.nodes[from_node]['longitude']]

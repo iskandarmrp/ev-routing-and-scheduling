@@ -28,18 +28,18 @@ def startup_event():
         'current_lon': 103.61938
     }
 
-    route_nodes = [34, 1, 152, 5, 80]
+    route_nodes = [34, 220, 54, 52, 186, 80]
 
     charging_at = {
-        34: {'soc_start': 90, 'soc_target': 118, 'charging_rate': 22, 'charging_time': 76.36363636363636, 'waiting_time': 0.38},
-        1: {'soc_start': 12.78, 'soc_target': 93.75, 'charging_rate': 22, 'charging_time': 220.82, 'waiting_time': 0.38},
-        152: {'soc_start': 23.60, 'soc_target': 118, 'charging_rate': 30, 'charging_time': 188.80, 'waiting_time': 0.38},
-        5: {'soc_start': 14.86, 'soc_target': 82.67, 'charging_rate': 50, 'charging_time': 81.37, 'waiting_time': 0.38},
+        220: {'soc_start': 39.73169449489532, 'soc_target': 104.18162443114582, 'charging_rate': 22, 'charging_time': 175.7725361897741, 'waiting_time': 0.2},
+        54: {'soc_start': 23.60000000000001, 'soc_target': 56.65666220673904, 'charging_rate': 50, 'charging_time': 39.66799464808684, 'waiting_time': 0.34},
+        52: {'soc_start': 23.6, 'soc_target': 109.47820326199832, 'charging_rate': 50, 'charging_time': 103.05384391439799, 'waiting_time': 0.39},
+        186: {'soc_start': 23.60000000000001, 'soc_target': 100.35456449293835, 'charging_rate': 100, 'charging_time': 46.052738695763004, 'waiting_time': 0.5}
     }
 
     def run_sim():
         sim = Simulation(
-            graph_file="preprocessing_graph/spklu_sumatera_graph_with_parameters_231.pkl",
+            graph_file="preprocessing_graph/spklu_sumatera_graph_with_parameters_231_modified.pkl",
             ev_input = ev_input,
             route=route_nodes,
             charging_at = charging_at
