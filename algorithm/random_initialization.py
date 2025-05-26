@@ -18,7 +18,4 @@ def random_evrp_solution_greedy(graph, ev, start_node, destination_node):
     # Validate charging
     validate_charging, charging_is_valid = validate_charging_after_backtrack(graph, ev, route)
 
-    # Filter route berdasarkan valid charging
-    filtered_route = route
-
-    return filtered_route, validate_charging, position, velocity
+    return route, validate_charging, position, velocity

@@ -1,5 +1,6 @@
 import numpy as np
 import random
+import copy
 from geopy.distance import distance as geopy_distance
 
 def calculate_energy_model(distance, speed, ev_type):
@@ -38,7 +39,7 @@ def decode_with_greedy(position, graph, ev, start_node, destination_node):
     selected_nodes.sort(key=lambda x: position[x])
 
     route = [start_node]
-    capacity = ev.capacity
+    capacity = copy.deepcopy(ev.capacity)
 
     current_node = start_node
 
@@ -46,16 +47,21 @@ def decode_with_greedy(position, graph, ev, start_node, destination_node):
         # Cek apakah bisa langsung ke tujuan
         if graph.has_edge(current_node, destination_node):
             edge = graph[current_node][destination_node]
-            dist = edge["distance"]
-            duration = edge["weight"]
+            dist = copy.deepcopy(edge["distance"])
+            duration = copy.deepcopy(edge["weight"])
             speed = dist / (duration / 60)
             if speed > ev.max_speed:
-                speed = ev.max_speed
+                speed = copy.deepcopy(ev.max_speed)
             needed_energy = calculate_energy_model(dist, speed, ev.type)
 
-            if capacity >= needed_energy:
-                route.append(destination_node)
-                break
+            if current_node == start_node:
+                if ev.battery_now >= needed_energy:
+                    route.append(destination_node)
+                    break
+            else:
+                if capacity >= needed_energy:
+                    route.append(destination_node)
+                    break
 
         is_insert = False
 
@@ -66,33 +72,52 @@ def decode_with_greedy(position, graph, ev, start_node, destination_node):
                 continue
 
             edge = graph[current_node][neighbor]
-            dist = edge["distance"]
-            duration = edge["weight"]
+            dist = copy.deepcopy(edge["distance"])
+            duration = copy.deepcopy(edge["weight"])
             speed = dist / (duration / 60)
 
             if speed > ev.max_speed:
-                speed = ev.max_speed
+                speed = copy.deepcopy(ev.max_speed)
 
             energy = calculate_energy_model(dist, speed, ev.type)
 
             # Hanya masukkan jika bisa dicapai dan mendekati tujuan
-            if capacity >= energy:
-                dest_lat = graph.nodes[destination_node]['latitude']
-                dest_lon = graph.nodes[destination_node]['longitude']
-                neighbor_lat = graph.nodes[neighbor]['latitude']
-                neighbor_lon = graph.nodes[neighbor]['longitude']
-                curr_lat = graph.nodes[current_node]['latitude']
-                curr_lon = graph.nodes[current_node]['longitude']
+            if current_node == start_node:
+                if ev.battery_now >= energy:
+                    dest_lat = copy.deepcopy(graph.nodes[destination_node]['latitude'])
+                    dest_lon = copy.deepcopy(graph.nodes[destination_node]['longitude'])
+                    neighbor_lat = copy.deepcopy(graph.nodes[neighbor]['latitude'])
+                    neighbor_lon = copy.deepcopy(graph.nodes[neighbor]['longitude'])
+                    curr_lat = copy.deepcopy(graph.nodes[current_node]['latitude'])
+                    curr_lon = copy.deepcopy(graph.nodes[current_node]['longitude'])
 
-                curr_dist = geopy_distance((curr_lat, curr_lon), (dest_lat, dest_lon)).km
-                next_dist = geopy_distance((neighbor_lat, neighbor_lon), (dest_lat, dest_lon)).km
+                    curr_dist = geopy_distance((curr_lat, curr_lon), (dest_lat, dest_lon)).km
+                    next_dist = geopy_distance((neighbor_lat, neighbor_lon), (dest_lat, dest_lon)).km
 
-                if next_dist < curr_dist:  # searah tujuan
-                    route.append(neighbor)
-                    selected_nodes = [node for node in selected_nodes if node != neighbor]
-                    current_node = neighbor
-                    is_insert = True
-                    break
+                    if next_dist < curr_dist + 5:  # searah tujuan dan plus 5 (toleransi)
+                        route.append(neighbor)
+                        selected_nodes = [node for node in selected_nodes if node != neighbor]
+                        current_node = neighbor
+                        is_insert = True
+                        break
+            else:
+                if capacity >= energy:
+                    dest_lat = copy.deepcopy(graph.nodes[destination_node]['latitude'])
+                    dest_lon = copy.deepcopy(graph.nodes[destination_node]['longitude'])
+                    neighbor_lat = copy.deepcopy(graph.nodes[neighbor]['latitude'])
+                    neighbor_lon = copy.deepcopy(graph.nodes[neighbor]['longitude'])
+                    curr_lat = copy.deepcopy(graph.nodes[current_node]['latitude'])
+                    curr_lon = copy.deepcopy(graph.nodes[current_node]['longitude'])
+
+                    curr_dist = geopy_distance((curr_lat, curr_lon), (dest_lat, dest_lon)).km
+                    next_dist = geopy_distance((neighbor_lat, neighbor_lon), (dest_lat, dest_lon)).km
+
+                    if next_dist < curr_dist:  # searah tujuan
+                        route.append(neighbor)
+                        selected_nodes = [node for node in selected_nodes if node != neighbor]
+                        current_node = neighbor
+                        is_insert = True
+                        break
 
         if not is_insert:
             print(f"⚠️ Terhenti di node {current_node}, tidak ada kandidat yang bisa dicapai dengan SOC = {capacity:.2f} kWh")
@@ -135,22 +160,27 @@ def greedy_reachable_route(graph, ev, start_node, destination_node):
     """
     current_node = start_node
     route = [current_node]
-    capacity = ev.capacity
-    ev_type = ev.type
+    capacity = copy.deepcopy(ev.capacity)
+    ev_type = copy.deepcopy(ev.type)
 
     while current_node != destination_node:
         if graph.has_edge(current_node, destination_node):
             edge = graph[current_node][destination_node]
-            dist = edge["distance"]
-            duration = edge["weight"]
+            dist = copy.deepcopy(edge["distance"])
+            duration = copy.deepcopy(edge["weight"])
             speed = dist / (duration / 60)
             if speed > ev.max_speed:
-                speed = ev.max_speed
+                speed = copy.deepcopy(ev.max_speed)
             energy = calculate_energy_model(dist, speed, ev_type)
 
-            if capacity >= energy:
-                route.append(destination_node)
-                break  # Langsung ke tujuan karena SOC cukup
+            if current_node == start_node:
+                if ev.battery_now >= energy:
+                    route.append(destination_node)
+                    break  # Langsung ke tujuan karena SOC cukup
+            else:
+                if capacity >= energy:
+                    route.append(destination_node)
+                    break  # Langsung ke tujuan karena SOC cukup
 
         candidates = []
         for neighbor in graph.successors(current_node):
@@ -160,29 +190,44 @@ def greedy_reachable_route(graph, ev, start_node, destination_node):
                 continue
 
             edge = graph[current_node][neighbor]
-            dist = edge["distance"]
-            duration = edge["weight"]
+            dist = copy.deepcopy(edge["distance"])
+            duration = copy.deepcopy(edge["weight"])
             speed = dist / (duration / 60)
 
             if speed > ev.max_speed:
-                speed = ev.max_speed
+                speed = copy.deepcopy(ev.max_speed)
 
             energy = calculate_energy_model(dist, speed, ev_type)
 
             # Hanya masukkan jika bisa dicapai dan mendekati tujuan
-            if capacity >= energy:
-                dest_lat = graph.nodes[destination_node]['latitude']
-                dest_lon = graph.nodes[destination_node]['longitude']
-                neighbor_lat = graph.nodes[neighbor]['latitude']
-                neighbor_lon = graph.nodes[neighbor]['longitude']
-                curr_lat = graph.nodes[current_node]['latitude']
-                curr_lon = graph.nodes[current_node]['longitude']
+            if current_node == start_node:
+                if ev.battery_now >= energy:
+                    dest_lat = copy.deepcopy(graph.nodes[destination_node]['latitude'])
+                    dest_lon = copy.deepcopy(graph.nodes[destination_node]['longitude'])
+                    neighbor_lat = copy.deepcopy(graph.nodes[neighbor]['latitude'])
+                    neighbor_lon = copy.deepcopy(graph.nodes[neighbor]['longitude'])
+                    curr_lat = copy.deepcopy(graph.nodes[current_node]['latitude'])
+                    curr_lon = copy.deepcopy(graph.nodes[current_node]['longitude'])
 
-                curr_dist = geopy_distance((curr_lat, curr_lon), (dest_lat, dest_lon)).km
-                next_dist = geopy_distance((neighbor_lat, neighbor_lon), (dest_lat, dest_lon)).km
+                    curr_dist = geopy_distance((curr_lat, curr_lon), (dest_lat, dest_lon)).km
+                    next_dist = geopy_distance((neighbor_lat, neighbor_lon), (dest_lat, dest_lon)).km
 
-                if next_dist < curr_dist:  # searah tujuan
-                    candidates.append(neighbor)
+                    if next_dist < curr_dist + 5:  # searah tujuan
+                        candidates.append(neighbor)
+            else:
+                if capacity >= energy:
+                    dest_lat = copy.deepcopy(graph.nodes[destination_node]['latitude'])
+                    dest_lon = copy.deepcopy(graph.nodes[destination_node]['longitude'])
+                    neighbor_lat = copy.deepcopy(graph.nodes[neighbor]['latitude'])
+                    neighbor_lon = copy.deepcopy(graph.nodes[neighbor]['longitude'])
+                    curr_lat = copy.deepcopy(graph.nodes[current_node]['latitude'])
+                    curr_lon = copy.deepcopy(graph.nodes[current_node]['longitude'])
+
+                    curr_dist = geopy_distance((curr_lat, curr_lon), (dest_lat, dest_lon)).km
+                    next_dist = geopy_distance((neighbor_lat, neighbor_lon), (dest_lat, dest_lon)).km
+
+                    if next_dist < curr_dist:  # searah tujuan
+                        candidates.append(neighbor)
 
         if not candidates:
             print(f"⚠️ Terhenti di node {current_node}, tidak ada kandidat yang bisa dicapai dengan SOC = {capacity:.2f} kWh")

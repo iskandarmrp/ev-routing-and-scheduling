@@ -1,4 +1,5 @@
 import numpy as np
+import copy
 import torch
 from .utils import calculate_energy_model
 from model_queue.model import WaitingTimeNN, model_loaded, scaler_x_loaded, scaler_y_loaded
@@ -46,9 +47,9 @@ def validate_charging_after_backtrack(graph, ev, cleaned_route):
     - is_valid: apakah rute valid secara SOC
     """
     charging_at = {}
-    soc = ev.battery_now
-    capacity = ev.capacity
-    charging_rate_ev = ev.charging_rate
+    soc = copy.deepcopy(ev.battery_now)
+    capacity = copy.deepcopy(ev.capacity)
+    charging_rate_ev = copy.deepcopy(ev.charging_rate)
 
     time = 0
 
@@ -60,82 +61,85 @@ def validate_charging_after_backtrack(graph, ev, cleaned_route):
         nxt = cleaned_route[i + 1]
 
         edge = graph.edges[curr, nxt]
-        distance = edge["distance"]
-        duration = edge["weight"]
+        distance = copy.deepcopy(edge["distance"])
+        duration = copy.deepcopy(edge["weight"])
         speed = distance / (duration / 60)
 
         if speed > ev.max_speed:
-            speed = ev.max_speed
+            speed = copy.deepcopy(ev.max_speed)
 
         # Hitung energi yang dibutuhkan
         energy_needed = calculate_energy_model(distance, speed, ev.type)
         
         # Cek cukup atau ngga ke node selanjutnya
-        if soc < energy_needed:
-            # Ekstrak data
-            waiting_time_prediction = {}
-            charging_time_prediction = {}
+        if curr != cleaned_route[0]:
+            if soc < energy_needed:
+                # Ekstrak data
+                waiting_time_prediction = {}
+                charging_time_prediction = {}
 
-            slots_param = graph.nodes[curr].get("slots_parameter", {})
-            slots_indicator = graph.nodes[curr].get("slots_indicator", {})
+                slots_param = copy.deepcopy(graph.nodes[curr].get("slots_parameter", {}))
+                slots_indicator = copy.deepcopy(graph.nodes[curr].get("slots_indicator", {}))
 
-            for rate, param in slots_param.items():
-                rate_kW = int(rate.split()[0])
+                for rate, param in slots_param.items():
+                    rate_kW = int(rate.split()[0])
 
-                if rate_kW > charging_rate_ev:
-                    continue  # skip kalau rate lebih tinggi dari kemampuan charging EV
+                    if rate_kW > charging_rate_ev:
+                        continue  # skip kalau rate lebih tinggi dari kemampuan charging EV
 
-                indicator_data = slots_indicator.get(rate, None)
+                    indicator_data = slots_indicator.get(rate, None)
 
-                arrival_rate = param["arrival_rate"]
-                service_rate = param["service_rate"]
-                s = param["s"]
+                    arrival_rate = param["arrival_rate"]
+                    service_rate = param["service_rate"]
+                    s = param["s"]
 
-                print("Time after indicator change:", indicator_data.get("time_after_indicator_change", 0))
-                
-                input_vector = [indicator_data.get("indicator", 0.0), indicator_data.get("time_after_indicator_change", 0) + time, rate_kW, arrival_rate, service_rate, s]
+                    print("Time after indicator change:", indicator_data.get("time_after_indicator_change", 0))
+                    
+                    input_vector = [indicator_data.get("indicator", 0.0), indicator_data.get("time_after_indicator_change", 0) + time, rate_kW, arrival_rate, service_rate, s]
 
-                print("Time after indicator + time", indicator_data.get("time_after_indicator_change", 0) + time)
+                    print("Time after indicator + time", indicator_data.get("time_after_indicator_change", 0) + time)
 
-                # Prediksi waiting time dari model
-                scaled = scaler_x_loaded.transform([input_vector])
-                tensor = torch.tensor(scaled, dtype=torch.float32)
+                    # Prediksi waiting time dari model
+                    scaled = scaler_x_loaded.transform([input_vector])
+                    tensor = torch.tensor(scaled, dtype=torch.float32)
 
-                with torch.no_grad():
-                    pred = model_loaded(tensor).numpy()
-                    pred_final = np.expm1(np.clip(scaler_y_loaded.inverse_transform(pred), a_min=None, a_max=6.5))
+                    with torch.no_grad():
+                        pred = model_loaded(tensor).numpy()
+                        pred_final = np.expm1(np.clip(scaler_y_loaded.inverse_transform(pred), a_min=None, a_max=6.5))
 
-                waiting_time_prediction[rate] = max(0.0, round(float(pred_final[0][0]), 2))
+                    waiting_time_prediction[rate] = max(0.0, round(float(pred_final[0][0]), 2))
 
-                if energy_needed > ev.capacity:
-                    charging_time_prediction[rate] = add_charging_schedule(soc, ev.capacity, capacity, rate_kW)
-                else:
-                    energy_needed_plus_buffer = min(energy_needed + (0.2 * ev.capacity), ev.capacity) # Supaya setidaknya ada 10% baterai tambahan atau kapasitas baterai full
-                    charging_time_prediction[rate] = add_charging_schedule(soc, energy_needed_plus_buffer, capacity, rate_kW)
+                    if energy_needed > ev.capacity:
+                        charging_time_prediction[rate] = add_charging_schedule(soc, ev.capacity, capacity, rate_kW)
+                    else:
+                        energy_needed_plus_buffer = min(energy_needed + (0.2 * ev.capacity), ev.capacity) # Supaya setidaknya ada 10% baterai tambahan atau kapasitas baterai full
+                        charging_time_prediction[rate] = add_charging_schedule(soc, energy_needed_plus_buffer, capacity, rate_kW)
 
-            # Gabungkan waiting_time + charging_time untuk setiap rate
-            if waiting_time_prediction and charging_time_prediction:
-                total_time_per_rate = {}
+                # Gabungkan waiting_time + charging_time untuk setiap rate
+                if waiting_time_prediction and charging_time_prediction:
+                    total_time_per_rate = {}
 
-                for rate in waiting_time_prediction:
-                    wait = waiting_time_prediction[rate]
-                    charge = charging_time_prediction[rate]["charging_time"]
-                    total = wait + charge
-                    total_time_per_rate[rate] = round(total, 2)
+                    for rate in waiting_time_prediction:
+                        wait = waiting_time_prediction[rate]
+                        charge = charging_time_prediction[rate]["charging_time"]
+                        total = wait + charge
+                        total_time_per_rate[rate] = round(total, 2)
 
-                # Ambil rate dengan total waktu terkecil
-                best_rate = min(total_time_per_rate, key=total_time_per_rate.get)
-                best_time = total_time_per_rate[best_rate]
+                    # Ambil rate dengan total waktu terkecil
+                    best_rate = min(total_time_per_rate, key=total_time_per_rate.get)
+                    best_time = total_time_per_rate[best_rate]
 
-                soc = charging_time_prediction[best_rate]["soc_target"] - energy_needed
+                    soc = charging_time_prediction[best_rate]["soc_target"] - energy_needed
 
-                charging_at[curr] = {
-                    **charging_time_prediction[best_rate],  # isi dari charging_time_prediction
-                    "waiting_time": waiting_time_prediction[best_rate]  # tambahkan waktu tunggu
-                }
-                time = time + charging_time_prediction[best_rate]["charging_time"] + waiting_time_prediction[best_rate]
-                print("Charging time:", charging_time_prediction[best_rate]["charging_time"])
-                print("Waiting time:", waiting_time_prediction[best_rate])
+                    charging_at[curr] = {
+                        **charging_time_prediction[best_rate],  # isi dari charging_time_prediction
+                        "waiting_time": waiting_time_prediction[best_rate]  # tambahkan waktu tunggu
+                    }
+                    time = time + charging_time_prediction[best_rate]["charging_time"] + waiting_time_prediction[best_rate]
+                    print("Charging time:", charging_time_prediction[best_rate]["charging_time"])
+                    print("Waiting time:", waiting_time_prediction[best_rate])
+            else:
+                soc -= energy_needed
         else:
             soc -= energy_needed
 

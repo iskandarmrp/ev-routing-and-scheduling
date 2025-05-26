@@ -1,10 +1,11 @@
+import copy
 from .utils import calculate_energy_model
 
 def evaluate(graph, ev, route, charge_times):
     """
     fungsi untuk evaluasi waktu (Jika gagal mengeluarkan inf)
     """
-    soc = ev.battery_now
+    soc = copy.deepcopy(ev.battery_now)
     t_total = 0.0
 
     # Melakukan iterasi rute dari setiap node i menuju node j yang ada di dalam daftar rute yang sudah didapatkan
@@ -13,12 +14,12 @@ def evaluate(graph, ev, route, charge_times):
         i, j = route[idx], route[idx+1]
 
         # Durasi, jarak, kecepatan rata-rata setiap edges
-        distance_km = graph.edges[i, j].get("distance")
-        duration = graph.edges[i, j].get('weight')
+        distance_km = copy.deepcopy(graph.edges[i, j].get("distance"))
+        duration = copy.deepcopy(graph.edges[i, j].get('weight'))
         speed = distance_km / (duration / 60)
 
         if speed > ev.max_speed:
-            speed = ev.max_speed
+            speed = copy.deepcopy(ev.max_speed)
 
         # Menghitung energi
         energy_consumed = calculate_energy_model(distance_km, speed, ev.type)
@@ -26,12 +27,12 @@ def evaluate(graph, ev, route, charge_times):
 
         # Pengecekan charging time
         if i in charge_times and charge_times[i]["charging_time"] > 0:
-            max_valid_rate = charge_times[i]["charging_rate"]
+            max_valid_rate = copy.deepcopy(charge_times[i]["charging_rate"])
             
-            t_charge = charge_times[i]["charging_time"] # menit
-            t_wait = charge_times[i]["waiting_time"] # menit
+            t_charge = copy.deepcopy(charge_times[i]["charging_time"]) # menit
+            t_wait = copy.deepcopy(charge_times[i]["waiting_time"]) # menit
             soc += max_valid_rate * (t_charge / 60) # kWh terisi
-            soc = min(ev.capacity, soc) # jangan melebihi kapasitas
+            soc = min(copy.deepcopy(ev.capacity), soc) # jangan melebihi kapasitas
             # print("SOC setelah mengecas:", soc)
 
             t_total += t_charge

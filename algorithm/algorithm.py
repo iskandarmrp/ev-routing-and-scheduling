@@ -120,37 +120,37 @@ def hybrid_pso_alns_evrp(graph, ev, start_node, destination_node, n_particles=10
             idx = result["idx"]
             score = result["score"]
 
-            particles[idx].destroy_scores = result["destroy_scores"]
-            particles[idx].repair_scores = result["repair_scores"]
+            particles[idx].destroy_scores = copy.deepcopy(result["destroy_scores"])
+            particles[idx].repair_scores = copy.deepcopy(result["repair_scores"])
 
             if score < particles[idx].best_score:
-                particles[idx].best_score = score
-                particles[idx].best_position = result["position"]
-                particles[idx].best_decoded_particle = result["decoded"]
+                particles[idx].best_score = copy.deepcopy(score)
+                particles[idx].best_position = copy.deepcopy(result["position"])
+                particles[idx].best_decoded_particle = copy.deepcopy(result["decoded"])
                 # particles[idx].best_visit_decision = result["visit_decision"]
-                particles[idx].best_charging_at = result["charging"]
+                particles[idx].best_charging_at = copy.deepcopy(result["charging"])
 
             if score < gbest_cost:
-                gbest_cost = score
-                gbest = result["position"]
-                gbest_route = result["decoded"]
+                gbest_cost = copy.deepcopy(score)
+                gbest = copy.deepcopy(result["position"])
+                gbest_route = copy.deepcopy(result["decoded"])
                 # gbest_visit_decision = result["visit_decision"]
-                gbest_charge = result["charging"]
+                gbest_charge = copy.deepcopy(result["charging"])
                 no_improvement = 0
 
             particles_trace[idx].append({
-                "route": result["decoded"],
-                "best_route": particles[idx].best_decoded_particle,
-                "position": particles[idx].position,
-                "best_position": particles[idx].best_position,
-                "score": score,
-                "best_score": particles[idx].best_score,
+                "route": copy.deepcopy(result["decoded"]),
+                "best_route": copy.deepcopy(particles[idx].best_decoded_particle),
+                "position": copy.deepcopy(particles[idx].position),
+                "best_position": copy.deepcopy(particles[idx].best_position),
+                "score": copy.deepcopy(score),
+                "best_score": copy.deepcopy(particles[idx].best_score),
             })
 
         if (_ != 0) and (_ % 20 == 0):
             particles = [Particle(graph, ev, start_node, destination_node) for _ in range(n_particles)]
 
-        trace.append(gbest_cost)
+        trace.append(copy.deepcopy(gbest_cost))
         no_improvement += 1
         if no_improvement >= stagnation:
             print("📉 Stagnation reached: stopping early")

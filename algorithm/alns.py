@@ -70,15 +70,15 @@ def destroy_reverse_direction(graph, route, charging, degree=2):
     if len(route) <= 2:
         return route, charging
 
-    dest_lat = graph.nodes[route[-1]]["latitude"]
-    dest_lon = graph.nodes[route[-1]]["longitude"]
+    dest_lat = copy.deepcopy(graph.nodes[route[-1]]["latitude"])
+    dest_lon = copy.deepcopy(graph.nodes[route[-1]]["longitude"])
 
     remove_idx = []
     for i in range(1, len(route) - 1):  # hanya node tengah
         curr = route[i]
         prev = route[i - 1]
-        curr_lat, curr_lon = graph.nodes[curr]["latitude"], graph.nodes[curr]["longitude"]
-        prev_lat, prev_lon = graph.nodes[prev]["latitude"], graph.nodes[prev]["longitude"]
+        curr_lat, curr_lon = copy.deepcopy(graph.nodes[curr]["latitude"]), copy.deepcopy(graph.nodes[curr]["longitude"])
+        prev_lat, prev_lon = copy.deepcopy(graph.nodes[prev]["latitude"]), copy.deepcopy(graph.nodes[prev]["longitude"])
 
         dist_prev = geopy_distance((prev_lat, prev_lon), (dest_lat, dest_lon)).km
         dist_curr = geopy_distance((curr_lat, curr_lon), (dest_lat, dest_lon)).km
@@ -98,7 +98,7 @@ def destroy_capacity_violation(graph, route, charging, ev, degree=2):
         return route, charging
 
     new_route = [route[0]]
-    capacity = ev.capacity * 0.9
+    capacity = copy.deepcopy(ev.capacity) * 0.95
     new_charging = {}
     remove_count = 0
 
@@ -109,10 +109,14 @@ def destroy_capacity_violation(graph, route, charging, ev, degree=2):
         if not graph.has_edge(prev, curr):
             continue
 
-        distance = graph[prev][curr]["distance"]
-        duration = graph[prev][curr]["weight"]
+        distance = copy.deepcopy(graph[prev][curr]["distance"])
+        duration = copy.deepcopy(graph[prev][curr]["weight"])
         duration_in_hour = duration / 60 # Ubah durasi ke dalam jam untuk menghitung kecepatan
         speed = distance / duration_in_hour
+
+        if speed > ev.max_speed:
+                speed = copy.deepcopy(ev.max_speed)
+
         consumption = calculate_energy_model(distance, speed, ev.type)
 
         if (capacity - consumption) >= 0:
@@ -126,6 +130,7 @@ def destroy_capacity_violation(graph, route, charging, ev, degree=2):
 
     if new_route[-1] != route[-1]:
         new_route.append(route[-1])
+
     new_charging = {k: v for k, v in charging.items() if k in new_route}
 
     return new_route, new_charging
@@ -186,22 +191,30 @@ def repair_longest(route, graph, all_nodes, ev, degree=2):
         j = int(j)
         prev_node = route[j - 1]
         next_node = route[j]
-        lat_prev = graph.nodes[prev_node]['latitude']
-        lat_next = graph.nodes[next_node]['latitude']
+        lat_prev = copy.deepcopy(graph.nodes[prev_node]['latitude'])
+        lat_next = copy.deepcopy(graph.nodes[next_node]['latitude'])
 
         candidate_nodes = []
 
         for candidate in remaining_nodes:
-            candidate_lat = graph.nodes[candidate]['latitude']
+            candidate_lat = copy.deepcopy(graph.nodes[candidate]['latitude'])
             if (candidate_lat >= lat_prev and candidate_lat <= lat_next) or (candidate_lat <= lat_prev and candidate_lat >= lat_next):
-                dist = graph[prev_node][candidate]["distance"]
-                duration = graph[prev_node][candidate]["weight"]
+                dist = copy.deepcopy(graph[prev_node][candidate]["distance"])
+                duration = copy.deepcopy(graph[prev_node][candidate]["weight"])
                 duration_in_hour = duration / 60 # Ubah durasi ke dalam jam untuk menghitung kecepatan
                 speed_prev = dist / duration_in_hour
+
+                if speed_prev > ev.max_speed:
+                    speed_prev = copy.deepcopy(ev.max_speed)
+
                 consumption = calculate_energy_model(dist, speed_prev, ev.type)
 
-                if ev.capacity >= consumption:
-                    candidate_nodes.append(candidate)
+                if prev_node == route[0]:
+                    if ev.battery_now >= consumption:
+                        candidate_nodes.append(candidate)
+                else:
+                    if ev.capacity >= consumption:
+                        candidate_nodes.append(candidate)
         
         if candidate_nodes:
             candidate = random.choice(candidate_nodes)
@@ -216,8 +229,8 @@ def repair_progressive_toward_goal(route, graph, all_nodes, ev, degree=4):
     Hanya sisipkan jika hasilnya mendekatkan ke tujuan.
     """
     remaining_nodes = list(set(all_nodes) - set(route))
-    dest_lat = graph.nodes[route[-1]]['latitude']
-    dest_lon = graph.nodes[route[-1]]['longitude']
+    dest_lat = copy.deepcopy(graph.nodes[route[-1]]['latitude'])
+    dest_lon = copy.deepcopy(graph.nodes[route[-1]]['longitude'])
 
     inserted = 0
 
@@ -229,14 +242,18 @@ def repair_progressive_toward_goal(route, graph, all_nodes, ev, degree=4):
             curr = route[i]
 
             # Cek apakah kandidat lebih dekat ke tujuan dibanding prev dan next
-            dist_curr = geopy_distance((graph.nodes[curr]['latitude'], graph.nodes[curr]['longitude']), (dest_lat, dest_lon)).km
-            dist_candidate = geopy_distance((graph.nodes[candidate]['latitude'], graph.nodes[candidate]['longitude']), (dest_lat, dest_lon)).km
+            dist_curr = geopy_distance((copy.deepcopy(graph.nodes[curr]['latitude']), copy.deepcopy(graph.nodes[curr]['longitude'])), (dest_lat, dest_lon)).km
+            dist_candidate = geopy_distance((copy.deepcopy(graph.nodes[candidate]['latitude']), copy.deepcopy(graph.nodes[candidate]['longitude'])), (dest_lat, dest_lon)).km
 
             if dist_candidate < dist_curr:  # pastikan lebih dekat
-                dist = graph[curr][candidate]["distance"]
-                duration = graph[curr][candidate]["weight"]
+                dist = copy.deepcopy(graph[curr][candidate]["distance"])
+                duration = copy.deepcopy(graph[curr][candidate]["weight"])
                 duration_in_hour = duration / 60 # Ubah durasi ke dalam jam untuk menghitung kecepatan
                 speed_prev = dist / duration_in_hour
+
+                if speed_prev > ev.max_speed:
+                    speed_prev = copy.deepcopy(ev.max_speed)
+
                 consumption = calculate_energy_model(dist, speed_prev, ev.type)
 
                 if ev.capacity >= consumption:
@@ -263,22 +280,38 @@ def repair_soc_aware(route, graph, all_nodes, ev, degree=4):
                 continue
 
             # Hitung jarak dan konsumsi baterai
-            dist_prev = graph[prev][candidate]["distance"]
-            dist_next = graph[candidate][next]["distance"]
-            duration_prev = graph[prev][candidate]["weight"]
+            dist_prev = copy.deepcopy(graph[prev][candidate]["distance"])
+            dist_next = copy.deepcopy(graph[candidate][next]["distance"])
+            duration_prev = copy.deepcopy(graph[prev][candidate]["weight"])
             duration_in_hour_prev = duration_prev / 60 # Ubah durasi ke dalam jam untuk menghitung kecepatan
             speed_prev = dist_prev / duration_in_hour_prev
+
+            if speed_prev > ev.max_speed:
+                    speed_prev = copy.deepcopy(ev.max_speed)
+
             consumption_prev = calculate_energy_model(dist_prev, speed_prev, ev.type)
-            duration_next = graph[candidate][next]["weight"]
+
+            duration_next = copy.deepcopy(graph[candidate][next]["weight"])
             duration_in_hour_next = duration_next / 60 # Ubah durasi ke dalam jam untuk menghitung kecepatan
             speed_next = dist_next / duration_in_hour_next
+
+            if speed_next > ev.max_speed:
+                    speed_next = copy.deepcopy(ev.max_speed)
+
             consumption_next = calculate_energy_model(dist_next, speed_next, ev.type)
-            
-            if ev.capacity >= consumption_prev and ev.capacity >= consumption_next:
-                route.insert(i, candidate)
-                remaining_nodes = list(set(all_nodes) - set(route))
-                inserted += 1
-                break  # lanjut ke kandidat berikutnya
+
+            if prev == route[0]:
+                if ev.battery_now >= consumption_prev and ev.battery_now >= consumption_next:
+                    route.insert(i, candidate)
+                    remaining_nodes = list(set(all_nodes) - set(route))
+                    inserted += 1
+                    break  # lanjut ke kandidat berikutnya
+            else:
+                if ev.capacity >= consumption_prev and ev.capacity >= consumption_next:
+                    route.insert(i, candidate)
+                    remaining_nodes = list(set(all_nodes) - set(route))
+                    inserted += 1
+                    break  # lanjut ke kandidat berikutnya
 
     return route
 
