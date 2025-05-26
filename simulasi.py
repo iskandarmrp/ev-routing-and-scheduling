@@ -255,15 +255,17 @@ def simulate_route(env, G, charging_at, charging_stations, ev, route):
 
 # todo: bikin class Simulation
 class Simulation:
-    def __init__(self, graph_file, ev_input, route, charging_at):
+    def __init__(self, graph_file, ev_input, start_node, destination_node):
         self.env = simpy.Environment() # Inisialisasi ENV
         self.graph_file = graph_file # File Graph
         self.G = None # Graph
         self.ev_input = ev_input
         self.ev = None # EV
         self.charging_stations = {}
-        self.route = route # Rute
-        self.charging_at = charging_at # Schedule
+        self.route = [] # Rute
+        self.charging_at = {} # Schedule
+        self.start_node = start_node
+        self.destination_node = destination_node
 
     # Melakukan load graph file
     def load_graph(self):
@@ -311,21 +313,18 @@ class Simulation:
         print("EV berhasil dibuat")
 
     def run(self):
-        global G
-        global charging_stations
-        global charging_at
-
         self.load_graph()
         self.setup_charging_stations()
         self.setup_electric_vehicle()
 
-        G = self.G
-        charging_stations = self.charging_stations
+        gbestpost, gbest_route, gbest_charge, gbest_cost, trace = get_route(self.start_node, self.destination_node, self.G, self.ev)
 
-        charging_at = self.charging_at
+        self.route = gbest_route
+
+        self.charging_at = gbest_charge
 
         status_data["capacity"] = self.ev.capacity
-        status_data["charging_plan"] = list(charging_at.items())
+        status_data["charging_plan"] = list(self.charging_at.items())
 
         status_data["current_position"] = [self.ev.current_lat, self.ev.current_lon]
         
@@ -422,23 +421,26 @@ if __name__ == '__main__':
 
     # Sementara: Fixed Route, Nanti akan diganti dari algoritma
     # route_nodes = [0, 1, 3] # Osmnx kayak gini
-    route_nodes = [34, 220, 54, 52, 186, 80]
+    # route_nodes = [34, 220, 54, 52, 186, 80]
 
     # charging_at = {
     #     1: 10  # node 1 ngecas manual 10 menit
     # }
 
-    charging_at = {
-        220: {'soc_start': 39.73169449489532, 'soc_target': 104.18162443114582, 'charging_rate': 22, 'charging_time': 175.7725361897741, 'waiting_time': 0.2},
-        54: {'soc_start': 23.60000000000001, 'soc_target': 56.65666220673904, 'charging_rate': 50, 'charging_time': 39.66799464808684, 'waiting_time': 0.34},
-        52: {'soc_start': 23.6, 'soc_target': 109.47820326199832, 'charging_rate': 50, 'charging_time': 103.05384391439799, 'waiting_time': 0.39},
-        186: {'soc_start': 23.60000000000001, 'soc_target': 100.35456449293835, 'charging_rate': 100, 'charging_time': 46.052738695763004, 'waiting_time': 0.5}
-    }
+    # charging_at = {
+    #     220: {'soc_start': 39.73169449489532, 'soc_target': 104.18162443114582, 'charging_rate': 22, 'charging_time': 175.7725361897741, 'waiting_time': 0.2},
+    #     54: {'soc_start': 23.60000000000001, 'soc_target': 56.65666220673904, 'charging_rate': 50, 'charging_time': 39.66799464808684, 'waiting_time': 0.34},
+    #     52: {'soc_start': 23.6, 'soc_target': 109.47820326199832, 'charging_rate': 50, 'charging_time': 103.05384391439799, 'waiting_time': 0.39},
+    #     186: {'soc_start': 23.60000000000001, 'soc_target': 100.35456449293835, 'charging_rate': 100, 'charging_time': 46.052738695763004, 'waiting_time': 0.5}
+    # }
+
+    start_node = 34
+    destination_node = 80
     
     sim = Simulation(
         graph_file="preprocessing_graph/spklu_sumatera_graph_with_parameters_231_modified.pkl",
         ev_input = ev_input,
-        route=route_nodes,
-        charging_at = charging_at
+        start_node = start_node,
+        destination_node = destination_node
     )
     sim.run()

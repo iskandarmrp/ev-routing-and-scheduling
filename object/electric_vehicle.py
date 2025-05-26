@@ -84,7 +84,12 @@ class ElectricVehicle:
                 charging_duration = 40
 
                 # Ambil rate maksimal yang <= self.charging_rate
-                eligible_rates = [r for r in self.slots_charging_rate if r <= self.charging_rate]
+                # eligible_rates = [r for r in self.slots_charging_rate if r <= self.charging_rate]
+                station = charging_stations.get(from_node)
+                if station:
+                    eligible_rates = [r for r in station.slots_charging_rate if r <= self.charging_rate]
+                else:
+                    eligible_rates = []
 
                 if eligible_rates:
                     charging_rate = max(eligible_rates)
