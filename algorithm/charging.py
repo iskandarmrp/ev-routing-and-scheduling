@@ -49,6 +49,7 @@ def validate_charging_after_backtrack(graph, ev, cleaned_route):
     soc = ev.battery_now
     capacity = ev.capacity
     charging_rate_ev = ev.charging_rate
+
     time = 0
 
     for i in range(len(cleaned_route) - 1):
@@ -62,6 +63,9 @@ def validate_charging_after_backtrack(graph, ev, cleaned_route):
         distance = edge["distance"]
         duration = edge["weight"]
         speed = distance / (duration / 60)
+
+        if speed > ev.max_speed:
+            speed = ev.max_speed
 
         # Hitung energi yang dibutuhkan
         energy_needed = calculate_energy_model(distance, speed, ev.type)
@@ -81,12 +85,17 @@ def validate_charging_after_backtrack(graph, ev, cleaned_route):
                 if rate_kW > charging_rate_ev:
                     continue  # skip kalau rate lebih tinggi dari kemampuan charging EV
 
-                indicator = slots_indicator.get(rate, None)
+                indicator_data = slots_indicator.get(rate, None)
+
                 arrival_rate = param["arrival_rate"]
                 service_rate = param["service_rate"]
                 s = param["s"]
+
+                print("Time after indicator change:", indicator_data.get("time_after_indicator_change", 0))
                 
-                input_vector = [indicator, time, rate_kW, arrival_rate, service_rate, s]
+                input_vector = [indicator_data.get("indicator", 0.0), indicator_data.get("time_after_indicator_change", 0) + time, rate_kW, arrival_rate, service_rate, s]
+
+                print("Time after indicator + time", indicator_data.get("time_after_indicator_change", 0) + time)
 
                 # Prediksi waiting time dari model
                 scaled = scaler_x_loaded.transform([input_vector])
@@ -94,7 +103,7 @@ def validate_charging_after_backtrack(graph, ev, cleaned_route):
 
                 with torch.no_grad():
                     pred = model_loaded(tensor).numpy()
-                    pred_final = np.expm1(scaler_y_loaded.inverse_transform(pred))
+                    pred_final = np.expm1(np.clip(scaler_y_loaded.inverse_transform(pred), a_min=None, a_max=6.5))
 
                 waiting_time_prediction[rate] = max(0.0, round(float(pred_final[0][0]), 2))
 
@@ -124,7 +133,14 @@ def validate_charging_after_backtrack(graph, ev, cleaned_route):
                     **charging_time_prediction[best_rate],  # isi dari charging_time_prediction
                     "waiting_time": waiting_time_prediction[best_rate]  # tambahkan waktu tunggu
                 }
+                time = time + charging_time_prediction[best_rate]["charging_time"] + waiting_time_prediction[best_rate]
+                print("Charging time:", charging_time_prediction[best_rate]["charging_time"])
+                print("Waiting time:", waiting_time_prediction[best_rate])
         else:
             soc -= energy_needed
+
+        time = time + (distance / speed * 60)
+        print((distance / speed * 60))
+        print("Time", time)
 
     return charging_at, True

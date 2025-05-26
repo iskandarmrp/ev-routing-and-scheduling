@@ -17,8 +17,12 @@ def evaluate(graph, ev, route, charge_times):
         duration = graph.edges[i, j].get('weight')
         speed = distance_km / (duration / 60)
 
+        if speed > ev.max_speed:
+            speed = ev.max_speed
+
         # Menghitung energi
         energy_consumed = calculate_energy_model(distance_km, speed, ev.type)
+        # print("SOC sebelum ngecas:", soc)
 
         # Pengecekan charging time
         if i in charge_times and charge_times[i]["charging_time"] > 0:
@@ -28,20 +32,26 @@ def evaluate(graph, ev, route, charge_times):
             t_wait = charge_times[i]["waiting_time"] # menit
             soc += max_valid_rate * (t_charge / 60) # kWh terisi
             soc = min(ev.capacity, soc) # jangan melebihi kapasitas
+            # print("SOC setelah mengecas:", soc)
 
             t_total += t_charge
             t_total += t_wait
+
+        # print("SOC sebelumnya:", soc)
 
         # Menghitung SOC
         soc -= energy_consumed
 
         # Jika SOC kurang dari nol maka gagal dan mengeluarkan inf
+        # print("SOC sekarang:", soc)
         if soc < 0:
             print("SOC < 0")
 
             # Penalti kalau soc kurang dari 0
-            t_total += abs(soc) * 1000
+            t_total += abs(soc) * 10000
             # print("SOC < 0")
+
+        soc = max(0, soc)
         
         t_total += duration
 

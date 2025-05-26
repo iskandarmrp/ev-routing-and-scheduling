@@ -1,4 +1,6 @@
 import numpy as np
+import random
+from geopy.distance import distance as geopy_distance
 
 def calculate_energy_model(distance, speed, ev_type):
     if ev_type == "tesla":
@@ -14,38 +16,103 @@ def calculate_energy_model(distance, speed, ev_type):
     return energy
 
 # Mengubah particle kontinu menjadi urutan node
-def decode_particle_with_visit(position, visit_decision, start_node, destination_node):
+def decode_with_greedy(position, graph, ev, start_node, destination_node):
     """
-    Decode partikel kontinu + visit decision 0/1 ke urutan rute.
-    - position: list of float priorities.
-    - visit_decision: dictionary {node_id: 0/1}
+    Decode rute dari start ke destination berdasarkan selected_nodes dengan pendekatan greedy + recheck.
+
+    - position: list of float (prioritas)
+    - graph: networkx DiGraph
+    - ev: object dengan .capacity dan .type
+    - start_node: node awal
+    - destination_node: node tujuan
+    - selected_nodes: hasil sorting dari posisi prioritas
     """
+    list_of_nodes = list(range(len(position)))
+    node_candidates = [n for n in list_of_nodes if n != start_node and n != destination_node]
 
-    list_of_nodes = list(range(len(position)))  # List node id
+    # Ambil k node dengan posisi terkecil
+    sorted_nodes = sorted(node_candidates, key=lambda x: position[x])
+    selected_nodes = sorted_nodes
 
-    # Pilih hanya node yang visit_decision==1
-    visiting_nodes = [node for node in list_of_nodes if visit_decision.get(node, 0) == 1 and node != destination_node and node != start_node]
+    # Urutkan selected_nodes lagi berdasarkan prioritas agar urutannya sesuai
+    selected_nodes.sort(key=lambda x: position[x])
 
-    # Urutkan visiting nodes berdasarkan priority position
-    visiting_nodes.sort(key=lambda x: position[x])
+    route = [start_node]
+    capacity = ev.capacity
 
-    route = [start_node] + visiting_nodes +[destination_node]
+    current_node = start_node
+
+    while True:
+        # Cek apakah bisa langsung ke tujuan
+        if graph.has_edge(current_node, destination_node):
+            edge = graph[current_node][destination_node]
+            dist = edge["distance"]
+            duration = edge["weight"]
+            speed = dist / (duration / 60)
+            if speed > ev.max_speed:
+                speed = ev.max_speed
+            needed_energy = calculate_energy_model(dist, speed, ev.type)
+
+            if capacity >= needed_energy:
+                route.append(destination_node)
+                break
+
+        is_insert = False
+
+        for neighbor in selected_nodes:
+            if neighbor in route:
+                continue
+            if not graph.has_edge(current_node, neighbor):
+                continue
+
+            edge = graph[current_node][neighbor]
+            dist = edge["distance"]
+            duration = edge["weight"]
+            speed = dist / (duration / 60)
+
+            if speed > ev.max_speed:
+                speed = ev.max_speed
+
+            energy = calculate_energy_model(dist, speed, ev.type)
+
+            # Hanya masukkan jika bisa dicapai dan mendekati tujuan
+            if capacity >= energy:
+                dest_lat = graph.nodes[destination_node]['latitude']
+                dest_lon = graph.nodes[destination_node]['longitude']
+                neighbor_lat = graph.nodes[neighbor]['latitude']
+                neighbor_lon = graph.nodes[neighbor]['longitude']
+                curr_lat = graph.nodes[current_node]['latitude']
+                curr_lon = graph.nodes[current_node]['longitude']
+
+                curr_dist = geopy_distance((curr_lat, curr_lon), (dest_lat, dest_lon)).km
+                next_dist = geopy_distance((neighbor_lat, neighbor_lon), (dest_lat, dest_lon)).km
+
+                if next_dist < curr_dist:  # searah tujuan
+                    route.append(neighbor)
+                    selected_nodes = [node for node in selected_nodes if node != neighbor]
+                    current_node = neighbor
+                    is_insert = True
+                    break
+
+        if not is_insert:
+            print(f"⚠️ Terhenti di node {current_node}, tidak ada kandidat yang bisa dicapai dengan SOC = {capacity:.2f} kWh")
+            break  # tidak ada jalan yang feasible lagi
+
+    # Pastikan tujuan tetap ditambahkan
+    if route[-1] != destination_node:
+        route.append(destination_node)
 
     return route
 
 def encode_route_to_position_alns(route, total_nodes, start_node, end_node):
     position = [1.0] * total_nodes
+    if len(route) <= 2:
+        return position  # kembalikan posisi default 0 jika hanya start-end
+    
     for idx, node in enumerate(route):
-        if node != start_node and node != end_node:
+        if node != start_node:
             position[node] = idx / (len(route) - 2)  # Normalisasi ke 0–1
     return position
-
-def create_visit_decision_from_route(route, graph_nodes):
-    route_set = set(route)
-    visit_decision = {}
-    for node in graph_nodes:
-        visit_decision[node] = 1 if node in route_set else 0
-    return visit_decision
 
 def update_velocity(velocity, pnow, pbest, gbest, phi1, phi2):
     v = np.array(velocity)
@@ -60,3 +127,83 @@ def update_position(pnow, velocity, p1, p2, gamma):
     p1 = np.array(p1)
     p2 = np.array(p2)
     return (x + v + gamma * (p1 - p2)).tolist()
+
+def greedy_reachable_route(graph, ev, start_node, destination_node):
+    """
+    Membentuk rute awal yang feasible dengan greedy approach berdasarkan SOC EV.
+    Hanya memilih node yang bisa dicapai dengan sisa baterai dan mendekati tujuan.
+    """
+    current_node = start_node
+    route = [current_node]
+    capacity = ev.capacity
+    ev_type = ev.type
+
+    while current_node != destination_node:
+        if graph.has_edge(current_node, destination_node):
+            edge = graph[current_node][destination_node]
+            dist = edge["distance"]
+            duration = edge["weight"]
+            speed = dist / (duration / 60)
+            if speed > ev.max_speed:
+                speed = ev.max_speed
+            energy = calculate_energy_model(dist, speed, ev_type)
+
+            if capacity >= energy:
+                route.append(destination_node)
+                break  # Langsung ke tujuan karena SOC cukup
+
+        candidates = []
+        for neighbor in graph.successors(current_node):
+            if neighbor in route:
+                continue
+            if not graph.has_edge(current_node, neighbor):
+                continue
+
+            edge = graph[current_node][neighbor]
+            dist = edge["distance"]
+            duration = edge["weight"]
+            speed = dist / (duration / 60)
+
+            if speed > ev.max_speed:
+                speed = ev.max_speed
+
+            energy = calculate_energy_model(dist, speed, ev_type)
+
+            # Hanya masukkan jika bisa dicapai dan mendekati tujuan
+            if capacity >= energy:
+                dest_lat = graph.nodes[destination_node]['latitude']
+                dest_lon = graph.nodes[destination_node]['longitude']
+                neighbor_lat = graph.nodes[neighbor]['latitude']
+                neighbor_lon = graph.nodes[neighbor]['longitude']
+                curr_lat = graph.nodes[current_node]['latitude']
+                curr_lon = graph.nodes[current_node]['longitude']
+
+                curr_dist = geopy_distance((curr_lat, curr_lon), (dest_lat, dest_lon)).km
+                next_dist = geopy_distance((neighbor_lat, neighbor_lon), (dest_lat, dest_lon)).km
+
+                if next_dist < curr_dist:  # searah tujuan
+                    candidates.append(neighbor)
+
+        if not candidates:
+            print(f"⚠️ Terhenti di node {current_node}, tidak ada kandidat yang bisa dicapai dengan SOC = {capacity:.2f} kWh")
+            break  # tidak ada jalan yang feasible lagi
+
+        # Pilih random dari kandidat yang valid
+        selected = random.choice(candidates)
+        route.append(selected)
+        current_node = selected
+
+    if route[-1] != destination_node:
+        route.append(destination_node)
+
+    return route
+
+def roulette_wheel_select(scores):
+    total = sum(scores)
+    r = random.uniform(0, total)
+    upto = 0
+    for idx, score in enumerate(scores):
+        if upto + score >= r:
+            return idx
+        upto += score
+    return len(scores) - 1

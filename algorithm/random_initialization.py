@@ -1,57 +1,24 @@
 import random
 from .utils import (
-    decode_particle_with_visit,
-    create_visit_decision_from_route
+    greedy_reachable_route,
+    encode_route_to_position_alns
 )
 from .charging import validate_charging_after_backtrack
 
 # Kayaknya ini perlu diubah (Jadi random banget, dan gaperlu ngecek bisa sampai atau ngga, soalnya harusnya dicek di evaluate)
-def random_evrp_solution(graph, ev, start_node, destination_node):
+def random_evrp_solution_greedy(graph, ev, start_node, destination_node):
     """
-    fungsi untuk membuat solusi random EVRP dengan awal start_node dan akhir destination_node
-
-    param:
-    graph -> graph
-    ev -> electric vehicle object
-    start_node -> node id awal
-    destination_node -> node id tujuan
+    Membuat solusi awal dengan pendekatan greedy menuju tujuan.
     """
-    total_nodes = len(graph.nodes)
+    route = greedy_reachable_route(graph, ev, start_node, destination_node)
 
-    # Inisialisasi visit_decision: semua 0 dulu
-    visit_decision = {node: 0 for node in graph.nodes}
-
-    visit_decision[start_node] = 1
-    visit_decision[destination_node] = 1
-
-    # Pilih random node selain start & destination untuk dikunjungi
-    other_nodes = [n for n in graph.nodes if n not in (start_node, destination_node)]
-    selected = random.sample(other_nodes, k=random.randint(1, len(other_nodes)))  # 1 - panjang node
-
-    for node in selected:
-        visit_decision[node] = 1
-
-    position = [1.0] * total_nodes  # default tinggi = tidak diprioritaskan
-
-    idx_map = {node: i for i, node in enumerate(graph.nodes)}
-
-    # Random untuk node lainnya (kecuali start dan destination)
-    for node in graph.nodes:
-        if node not in (start_node, destination_node):
-            position[idx_map[node]] = random.uniform(0.05, 0.95)
-
+    position = encode_route_to_position_alns(route, len(graph.nodes), start_node, destination_node)
     velocity = [random.uniform(-0.1, 0.1) for _ in range(len(position))]
 
-    # Coba decode 
-    decoded_particle = decode_particle_with_visit(position, visit_decision, start_node, destination_node)
-
     # Validate charging
-    validate_charging, charging_is_valid = validate_charging_after_backtrack(graph, ev, decoded_particle)
+    validate_charging, charging_is_valid = validate_charging_after_backtrack(graph, ev, route)
 
-    filtered_route = [decoded_particle[0]] + [
-        node for node in decoded_particle[1:-1] if node in validate_charging
-    ] + [decoded_particle[-1]]
+    # Filter route berdasarkan valid charging
+    filtered_route = route
 
-    visit_decision = create_visit_decision_from_route(filtered_route, list(graph.nodes))
-    
-    return filtered_route, validate_charging, visit_decision, position, velocity
+    return filtered_route, validate_charging, position, velocity

@@ -86,7 +86,7 @@ def user_input(vehicle_type):
 
 # todo: get_route (pakai algoritma yang dibuat)
 # function get_route
-def get_route(init_node, dest_node, G, ev):
+def get_route(start_node, destination_node, G, ev):
     """
     function yang melakukan routing dari init_node ke dest_node
 
@@ -99,9 +99,9 @@ def get_route(init_node, dest_node, G, ev):
 
     return route yang berupa array of node_id
     """
-    gbest_position, gbest_route, gbest_charge, gbest_cost, gbest_visit_decision, trace = hybrid_pso_alns_evrp(G, ev, init_node, dest_node, n_particles=10, max_iter=1000, stagnation=500, max_time=120)
+    gbest_position, gbest_route, gbest_charge, gbest_cost, trace, particles_trace = hybrid_pso_alns_evrp(G, ev, start_node, destination_node, n_particles=15, max_iter=1000, stagnation=500, max_time=30)
     # route = nx.shortest_path(G, init_node, dest_node, weight='duration')
-    return gbest_route, gbest_charge
+    return gbest_position, gbest_route, gbest_charge, gbest_cost, trace
 
 def get_node_by_latlon(G, lat, lon):
     """
