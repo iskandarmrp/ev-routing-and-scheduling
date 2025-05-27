@@ -157,7 +157,6 @@ def destroy_longest_waiting_time(route, charging, degree=2):
     new_route = [node for node in route if node not in nodes_to_remove]
     new_charging = {k: v for k, v in charging.items() if k not in nodes_to_remove}
 
-    print(f"⛔ Destroyed nodes (longest waiting, excluding start/end): {nodes_to_remove}")
     return new_route, new_charging
 
 def repair_random(route, all_nodes, degree=2):
@@ -356,14 +355,11 @@ def alns_search(graph, ev, route, charging, all_nodes, destroy_scores, repair_sc
     destroy = destroy_methods[destroy_idx]
     repair = repair_methods[repair_idx]
 
-    print(f"Destroy #{destroy_idx}, Repair #{repair_idx}")
 
     # Destroy
-    print("lagi destroy")
     temp_route, temp_charging = destroy(copy.deepcopy(best_route), copy.deepcopy(best_charging))
 
     # Repair
-    print("lagi repair")
     temp_route = repair(temp_route)
 
     if len(temp_route) >= 2 and temp_route[-1] == temp_route[-2]:

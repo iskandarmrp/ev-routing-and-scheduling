@@ -210,6 +210,36 @@ def manage_all_nodes(graph, charging_stations):
         if node_id in graph.nodes:
             graph.nodes[node_id]["slots_indicator"] = indicator
 
+# Function untuk membuat edge menggunakan OSRM
+def add_osrm_edge(graph, from_id, to_id, osrm_url="http://localhost:5000"):
+    lat1 = graph.nodes[from_id]["latitude"]
+    lon1 = graph.nodes[from_id]["longitude"]
+    lat2 = graph.nodes[to_id]["latitude"]
+    lon2 = graph.nodes[to_id]["longitude"]
+            
+    try:
+        url = f"{osrm_url}/route/v1/driving/{lon1},{lat1};{lon2},{lat2}?overview=false"
+        response = requests.get(url)
+        data = response.json()
+                
+        if data["code"] == "Ok":
+            route = data["routes"][0]
+            distance_km = max(round(route["distance"] / 1000, 2), 0.000001)
+            duration_min = max(round(route["duration"] / 60, 2), 0.000001)
+            weight = duration_min  # atau distance_km jika kamu prioritaskan jarak
+
+            graph.add_edge(
+                from_id, to_id,
+                weight=weight,
+                distance=distance_km,
+                mean=weight,
+                std=weight * 0.1
+            )
+
+            print(from_id, to_id)
+    except Exception as e:
+        print(f"Gagal buat edge dari {from_id} ke {to_id}: {e}")
+
 # todo: buat simulasi rute (simulasiin rute yang didapat dari function get route)
 # procedure simulate route
 def simulate_route(env, G, charging_at, charging_stations, ev, route):
@@ -255,22 +285,46 @@ def simulate_route(env, G, charging_at, charging_stations, ev, route):
 
 # todo: bikin class Simulation
 class Simulation:
-    def __init__(self, graph_file, ev_input, start_node, destination_node):
+    def __init__(self, graph_file, ev_input, start_location, destination_location):
         self.env = simpy.Environment() # Inisialisasi ENV
         self.graph_file = graph_file # File Graph
         self.G = None # Graph
+        self.initial_graph_length = None
         self.ev_input = ev_input
         self.ev = None # EV
         self.charging_stations = {}
         self.route = [] # Rute
         self.charging_at = {} # Schedule
-        self.start_node = start_node
-        self.destination_node = destination_node
+        self.start_location = start_location
+        self.destination_location = destination_location
 
     # Melakukan load graph file
     def load_graph(self):
         with open(self.graph_file, "rb") as f:
             self.G = pickle.load(f)
+
+        self.initial_graph_length = self.G.number_of_nodes()
+
+    def setup_origin_and_destination(self):
+        print("Sedang setup origin dan destination")
+        
+        # Tambah node origin dan destination (bukan charging station)
+        self.G.add_node(self.initial_graph_length, name="Origin", latitude=self.start_location[0], longitude=self.start_location[1], is_charging_station=False)
+        self.G.add_node(self.initial_graph_length+1, name="Destination", latitude=self.destination_location[0], longitude=self.destination_location[0], is_charging_station=False)
+
+        # Buat edge dari origin dan destination ke semua node lain (dan sebaliknya jika perlu)
+        all_nodes = list(self.G.nodes)
+        for node in all_nodes:
+            if node not in [self.initial_graph_length, self.initial_graph_length+1]:
+                add_osrm_edge(self.G, self.initial_graph_length, node)
+                add_osrm_edge(self.G, node, self.initial_graph_length)
+                add_osrm_edge(self.G, self.initial_graph_length+1, node)
+                add_osrm_edge(self.G, node, self.initial_graph_length+1)
+
+        add_osrm_edge(self.G, self.initial_graph_length, self.initial_graph_length+1)
+        add_osrm_edge(self.G, self.initial_graph_length+1, self.initial_graph_length)
+
+        print("Selesai setup origin dan destination")
 
     # Membuat banyak charging station menggunakan class charging station dengan csv
     def setup_charging_stations(self):
@@ -316,8 +370,18 @@ class Simulation:
         self.load_graph()
         self.setup_charging_stations()
         self.setup_electric_vehicle()
+        self.setup_origin_and_destination()
 
-        gbestpost, gbest_route, gbest_charge, gbest_cost, trace = get_route(self.start_node, self.destination_node, self.G, self.ev)
+        print("Initial graph length:", self.initial_graph_length)
+
+        self.ev.current_lat = self.start_location[0]
+        self.ev.current_lon = self.start_location[1]
+
+        gbestpost, gbest_route, gbest_charge, gbest_cost, trace = get_route(self.initial_graph_length, self.initial_graph_length+1, self.G, self.ev)
+
+        print("Gbest_route", gbest_route)
+        print("Gbest_charge", gbest_charge)
+        print("Gbest_cost", gbest_cost)
 
         self.route = gbest_route
 
@@ -440,7 +504,7 @@ if __name__ == '__main__':
     sim = Simulation(
         graph_file="preprocessing_graph/spklu_sumatera_graph_with_parameters_231_modified.pkl",
         ev_input = ev_input,
-        start_node = start_node,
-        destination_node = destination_node
+        start_location = [-5.8732644, 105.7357697],
+        destination_location =[5.5551449, 95.2825526]
     )
     sim.run()

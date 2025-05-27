@@ -120,7 +120,7 @@ def decode_with_greedy(position, graph, ev, start_node, destination_node):
                         break
 
         if not is_insert:
-            print(f"⚠️ Terhenti di node {current_node}, tidak ada kandidat yang bisa dicapai dengan SOC = {capacity:.2f} kWh")
+            # print(f"⚠️ Terhenti di node {current_node}, tidak ada kandidat yang bisa dicapai dengan SOC = {capacity:.2f} kWh")
             break  # tidak ada jalan yang feasible lagi
 
     # Pastikan tujuan tetap ditambahkan
@@ -230,7 +230,7 @@ def greedy_reachable_route(graph, ev, start_node, destination_node):
                         candidates.append(neighbor)
 
         if not candidates:
-            print(f"⚠️ Terhenti di node {current_node}, tidak ada kandidat yang bisa dicapai dengan SOC = {capacity:.2f} kWh")
+            # print(f"⚠️ Terhenti di node {current_node}, tidak ada kandidat yang bisa dicapai dengan SOC = {capacity:.2f} kWh")
             break  # tidak ada jalan yang feasible lagi
 
         # Pilih random dari kandidat yang valid

@@ -46,7 +46,6 @@ def evaluate(graph, ev, route, charge_times):
         # Jika SOC kurang dari nol maka gagal dan mengeluarkan inf
         # print("SOC sekarang:", soc)
         if soc < 0:
-            print("SOC < 0")
 
             # Penalti kalau soc kurang dari 0
             t_total += abs(soc) * 10000

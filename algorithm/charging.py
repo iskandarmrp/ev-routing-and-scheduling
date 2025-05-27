@@ -93,11 +93,8 @@ def validate_charging_after_backtrack(graph, ev, cleaned_route):
                     service_rate = param["service_rate"]
                     s = param["s"]
 
-                    print("Time after indicator change:", indicator_data.get("time_after_indicator_change", 0))
                     
                     input_vector = [indicator_data.get("indicator", 0.0), indicator_data.get("time_after_indicator_change", 0) + time, rate_kW, arrival_rate, service_rate, s]
-
-                    print("Time after indicator + time", indicator_data.get("time_after_indicator_change", 0) + time)
 
                     # Prediksi waiting time dari model
                     scaled = scaler_x_loaded.transform([input_vector])
@@ -136,15 +133,11 @@ def validate_charging_after_backtrack(graph, ev, cleaned_route):
                         "waiting_time": waiting_time_prediction[best_rate]  # tambahkan waktu tunggu
                     }
                     time = time + charging_time_prediction[best_rate]["charging_time"] + waiting_time_prediction[best_rate]
-                    print("Charging time:", charging_time_prediction[best_rate]["charging_time"])
-                    print("Waiting time:", waiting_time_prediction[best_rate])
             else:
                 soc -= energy_needed
         else:
             soc -= energy_needed
 
         time = time + (distance / speed * 60)
-        print((distance / speed * 60))
-        print("Time", time)
 
     return charging_at, True

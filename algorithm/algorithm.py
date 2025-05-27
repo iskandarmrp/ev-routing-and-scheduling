@@ -28,7 +28,6 @@ def particle_update_worker(args):
     ) = args
 
     start = time.time()
-    print(f"➡️ [Start] Worker {particle_idx} (Thread: {threading.current_thread().name})")
 
     graph = graph_global
 
@@ -52,7 +51,6 @@ def particle_update_worker(args):
     new_score = evaluate(graph, ev, news_path, news_charging)
 
     end = time.time()
-    print(f"✅ [Done] Worker {particle_idx} in {end - start:.2f}s")
 
     result = {
         "idx": particle_idx,
@@ -92,12 +90,8 @@ def hybrid_pso_alns_evrp(graph, ev, start_node, destination_node, n_particles=10
 
     for _ in range(max_iter):
         if (time.time() - start_time >= max_time) and (gbest_cost <= 5000):
-            print("⏱️ Timeout reached: terminating early")
             actual_duration = time.time() - start_time
             actual_iterations = len(trace)
-
-            print(f"⏱️ Total runtime: {actual_duration:.2f} seconds")
-            print(f"🔁 Total iterations: {actual_iterations}")
             break
 
         task_inputs = []
@@ -153,7 +147,6 @@ def hybrid_pso_alns_evrp(graph, ev, start_node, destination_node, n_particles=10
         trace.append(copy.deepcopy(gbest_cost))
         no_improvement += 1
         if no_improvement >= stagnation:
-            print("📉 Stagnation reached: stopping early")
             break
 
     # return gbest, gbest_route, gbest_charge, gbest_cost, gbest_visit_decision, trace, particles_trace
