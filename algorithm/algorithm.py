@@ -37,7 +37,7 @@ def particle_update_worker(args):
     # particle.decoded_particle = decode_particle_k_smallest(particle.position, start_node, destination_node, len(particle.best_decoded_particle), delta_k=2)
     particle.decoded_particle = decode_with_greedy(particle.position, graph, ev, start_node, destination_node)
 
-    alns_route, alns_charging, alns_cost, destroy_scores, repair_scores = alns_search(graph, ev, particle.decoded_particle, particle.charging_at, all_nodes, particle.destroy_scores, particle.repair_scores)
+    alns_route, alns_charging, alns_cost, destroy_scores, repair_scores = alns_search(graph, ev, particle.decoded_particle, particle.charging_at, all_nodes, particle.destroy_scores, particle.repair_scores, particle.destroy_counts, particle.repair_counts, particle.total_destroy, particle.total_repair)
     alns_position = encode_route_to_position_alns(alns_route, len(graph.nodes), start_node, destination_node)
     # alns_visit_decision = create_visit_decision_from_route(alns_route, list(graph.nodes))
     # decoded_route = decode_particle_with_visit(alns_position, alns_visit_decision, start_node, destination_node)

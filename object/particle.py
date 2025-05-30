@@ -27,3 +27,7 @@ class Particle:
         # self.best_visit_decision = copy.deepcopy(visit_decision)
         self.destroy_scores = [1.0] * 7
         self.repair_scores = [1.0] * 4
+        self.destroy_counts = [1] * 7
+        self.repair_counts = [1] * 4
+        self.total_destroy = 0
+        self.total_repair = 0

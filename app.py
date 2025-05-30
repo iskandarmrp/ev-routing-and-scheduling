@@ -24,25 +24,25 @@ def startup_event():
         'battery_capacity': 118,
         'battery_now': 90,
         'charging_rate': 125,
-        'current_lat': -1.5882215,
-        'current_lon': 103.61938
+        'current_lat': -5.8732644,
+        'current_lon': 105.7357697
     }
 
-    route_nodes = [34, 220, 54, 52, 186, 80]
+    # route_nodes = [34, 220, 54, 52, 186, 80]
 
-    charging_at = {
-        220: {'soc_start': 39.73169449489532, 'soc_target': 104.18162443114582, 'charging_rate': 22, 'charging_time': 175.7725361897741, 'waiting_time': 0.2},
-        54: {'soc_start': 23.60000000000001, 'soc_target': 56.65666220673904, 'charging_rate': 50, 'charging_time': 39.66799464808684, 'waiting_time': 0.34},
-        52: {'soc_start': 23.6, 'soc_target': 109.47820326199832, 'charging_rate': 50, 'charging_time': 103.05384391439799, 'waiting_time': 0.39},
-        186: {'soc_start': 23.60000000000001, 'soc_target': 100.35456449293835, 'charging_rate': 100, 'charging_time': 46.052738695763004, 'waiting_time': 0.5}
-    }
+    # charging_at = {
+    #     220: {'soc_start': 39.73169449489532, 'soc_target': 104.18162443114582, 'charging_rate': 22, 'charging_time': 175.7725361897741, 'waiting_time': 0.2},
+    #     54: {'soc_start': 23.60000000000001, 'soc_target': 56.65666220673904, 'charging_rate': 50, 'charging_time': 39.66799464808684, 'waiting_time': 0.34},
+    #     52: {'soc_start': 23.6, 'soc_target': 109.47820326199832, 'charging_rate': 50, 'charging_time': 103.05384391439799, 'waiting_time': 0.39},
+    #     186: {'soc_start': 23.60000000000001, 'soc_target': 100.35456449293835, 'charging_rate': 100, 'charging_time': 46.052738695763004, 'waiting_time': 0.5}
+    # }
 
     def run_sim():
         sim = Simulation(
             graph_file="preprocessing_graph/spklu_sumatera_graph_with_parameters_231_modified.pkl",
             ev_input = ev_input,
-            route=route_nodes,
-            charging_at = charging_at
+            start_location = [-5.8732644, 105.7357697],
+            destination_location =[5.5551449, 95.2825526]
         )
         sim.run()
 

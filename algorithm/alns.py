@@ -1,12 +1,23 @@
 import random
 import copy
 from geopy.distance import distance as geopy_distance
+import math
 from .utils import (
     calculate_energy_model,
     roulette_wheel_select
 )
 from .charging import validate_charging_after_backtrack
 from .evaluation import evaluate
+
+def ucb1_select(rewards, counts, total_calls, c=2.0):
+    ucb_values = []
+    for i in range(len(rewards)):
+        if counts[i] == 0:
+            return i
+        avg_reward = rewards[i] / counts[i]
+        exploration_term = c * math.sqrt(math.log(total_calls) / counts[i])
+        ucb_values.append(avg_reward + exploration_term)
+    return ucb_values.index(max(ucb_values))
 
 def destroy_random(route, charging, degree=2):
     if len(route) <= 2:
@@ -323,7 +334,7 @@ def adaptive_degree(route, destroy=True, min_val=1, max_val=10):
         # Repair: Rute pendek → degree besar (eksplorasi), Rute panjang → degree kecil
         return max(min_val, min(max_val, (20 - n) // 4)) if n < 20 else min_val
 
-def alns_search(graph, ev, route, charging, all_nodes, destroy_scores, repair_scores):
+def alns_search(graph, ev, route, charging, all_nodes, destroy_scores, repair_scores, destroy_counts, repair_counts, total_destroy, total_repair):
     destroy_methods = [
         lambda r, c: destroy_random(r, c, degree=adaptive_degree(r, destroy=True)),
         lambda r, c: destroy_farthest_pair(graph, r, c, degree=adaptive_degree(r, destroy=True)),
@@ -349,8 +360,8 @@ def alns_search(graph, ev, route, charging, all_nodes, destroy_scores, repair_sc
     # destroy = random.choice(destroy_methods)
     # repair = random.choice(repair_methods)
 
-    destroy_idx = roulette_wheel_select(destroy_scores)
-    repair_idx = roulette_wheel_select(repair_scores)
+    destroy_idx = ucb1_select(destroy_scores, destroy_counts, total_destroy + 1)
+    repair_idx = ucb1_select(repair_scores, repair_counts, total_repair + 1)
 
     destroy = destroy_methods[destroy_idx]
     repair = repair_methods[repair_idx]
@@ -374,11 +385,26 @@ def alns_search(graph, ev, route, charging, all_nodes, destroy_scores, repair_sc
     # return best_route, best_charging, best_cost
 
     improved = cost < best_cost
+    # if improved:
+    #     destroy_scores[destroy_idx] += 0.1
+    #     repair_scores[repair_idx] += 0.1
+    #     return temp_route, temp_charging, cost, destroy_scores, repair_scores
+    # else:
+    #     destroy_scores[destroy_idx] *= 0.95
+    #     repair_scores[repair_idx] *= 0.95
+    #     return best_route, best_charging, best_cost, destroy_scores, repair_scores
     if improved:
-        destroy_scores[destroy_idx] += 0.1
-        repair_scores[repair_idx] += 0.1
+        reward = best_cost - cost
+        destroy_scores[destroy_idx] += reward
+        repair_scores[repair_idx] += reward
+        destroy_counts[destroy_idx] += 1
+        repair_counts[repair_idx] += 1
+        total_destroy += 1
+        total_repair += 1
         return temp_route, temp_charging, cost, destroy_scores, repair_scores
     else:
-        destroy_scores[destroy_idx] *= 0.95
-        repair_scores[repair_idx] *= 0.95
+        destroy_counts[destroy_idx] += 1
+        repair_counts[repair_idx] += 1
+        total_destroy += 1
+        total_repair += 1
         return best_route, best_charging, best_cost, destroy_scores, repair_scores

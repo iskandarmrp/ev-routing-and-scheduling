@@ -55,6 +55,4 @@ def evaluate(graph, ev, route, charge_times):
         
         t_total += duration
 
-        # Coming soon: Pengecekan queue time
-
     return t_total
